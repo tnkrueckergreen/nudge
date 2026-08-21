@@ -34,6 +34,14 @@ function isTaskKind(kind: string): kind is TaskKind {
   return TASK_KINDS.has(kind)
 }
 
+function isWorkStatus(status: unknown): status is WorkStatus {
+  return status === 'todo' || status === 'doing' || status === 'done'
+}
+
+function normalizedStatus(status: unknown, fallback: WorkStatus = 'todo'): WorkStatus {
+  return isWorkStatus(status) ? status : fallback
+}
+
 export function durationMinutes(start: string, end: string): number {
   const n = Math.round((+new Date(end) - +new Date(start)) / 60000)
   return Number.isFinite(n) ? Math.max(0, n) : 0
@@ -63,8 +71,10 @@ function cloneUnit(u: WorkUnit): WorkUnit {
 }
 
 function cloneUnits(src: Record<ID, WorkUnit> | undefined): Record<ID, WorkUnit> {
-  if (!src || Object.keys(src).length === 0) return {}
-  const out: Record<ID, WorkUnit> = {}
+  if (!src || Object.keys(src).length === 0) return Object.create(null) as Record<ID, WorkUnit>
+  // Unit IDs can come from imported backups. A null-prototype dictionary keeps
+  // IDs such as "__proto__" from changing the shape of the working graph.
+  const out: Record<ID, WorkUnit> = Object.create(null) as Record<ID, WorkUnit>
   for (const [id, u] of Object.entries(src)) out[id] = cloneUnit(u)
   return out
 }
@@ -89,8 +99,16 @@ function breakParentCycles(units: Record<ID, WorkUnit>): void {
 }
 
 function sittingParentId(block: StudyBlock, units: Record<ID, WorkUnit>): ID | null {
-  if (block.subtaskId && block.subtaskId !== block.id && units[block.subtaskId]) return block.subtaskId
-  return block.assignmentId ?? null
+  const subtask = block.subtaskId ? units[block.subtaskId] : undefined
+  if (subtask && block.subtaskId !== block.id && subtask.kind === 'step') {
+    // A stale block can contain a subtask ID from another assignment. Do not
+    // let that foreign reference splice two otherwise independent trees.
+    const root = getRoot(units, subtask)
+    if (!block.assignmentId || root.id === block.assignmentId) return subtask.id
+  }
+  return block.assignmentId && units[block.assignmentId] && units[block.assignmentId].kind !== 'sitting'
+    ? block.assignmentId
+    : null
 }
 
 function logFromSession(s: Session): TimeLog {
@@ -310,10 +328,12 @@ export function sessionCreditsBlock(session: Session, block: StudyBlock): boolea
 }
 
 export function deriveCompositeStatus(childStatuses: WorkStatus[], ownStatus: WorkStatus = 'todo'): WorkStatus {
-  if (childStatuses.length === 0) return ownStatus
-  if (childStatuses.every((s) => s === 'done')) return 'done'
-  if (childStatuses.some((s) => s === 'doing' || s === 'done')) return 'doing'
-  if (ownStatus === 'doing') return 'doing'
+  const children = childStatuses.map((status) => normalizedStatus(status))
+  const own = normalizedStatus(ownStatus)
+  if (children.length === 0) return own
+  if (children.every((s) => s === 'done')) return 'done'
+  if (children.some((s) => s === 'doing' || s === 'done')) return 'doing'
+  if (own === 'doing') return 'doing'
   return 'todo'
 }
 
@@ -374,7 +394,7 @@ export function stateToUnits(state: AppState): Record<ID, WorkUnit> {
         due: existing.due === undefined && a.due === existing.createdAt ? undefined : a.due,
         weight: a.weight,
         grade: a.grade,
-        status: a.status,
+        status: normalizedStatus(a.status, existing?.status),
         estimateMin: a.estimateMin ?? existing.estimateMin,
         notes: a.notes,
         completedAt: a.completedAt,
@@ -395,7 +415,7 @@ export function stateToUnits(state: AppState): Record<ID, WorkUnit> {
         due: a.due,
         weight: a.weight,
         grade: a.grade,
-        status: a.status,
+        status: normalizedStatus(a.status),
         estimateMin: a.estimateMin ?? 60,
         schedule: null,
         logs: [],
@@ -425,14 +445,14 @@ export function stateToUnits(state: AppState): Record<ID, WorkUnit> {
 
       if (existingStep) {
         const keepSitting = existingStep.kind === 'sitting'
-        const kind = keepSitting ? 'sitting' : existingStep.kind || 'step'
+        const kind = keepSitting || existingStep.kind === 'step' ? existingStep.kind : 'step'
         units[st.id] = {
           ...existingStep,
           parentId,
           courseId: a.courseId,
           title: st.title,
           kind,
-          status: st.done ? 'done' : existingStep.status === 'done' ? 'todo' : existingStep.status,
+          status: st.done ? 'done' : existingStep.status === 'done' ? 'todo' : normalizedStatus(existingStep.status),
           due: st.due,
           estimateMin: st.estimateMin ?? existingStep.estimateMin,
           schedule: keepSitting
@@ -469,7 +489,7 @@ export function stateToUnits(state: AppState): Record<ID, WorkUnit> {
     const existing = units[b.id]
     if (existing) {
       const isSitting = existing.kind === 'sitting'
-      let status = existing.status
+      let status = normalizedStatus(existing.status)
       if (b.done) status = 'done'
       else if (existing.status === 'done') status = 'todo'
       units[b.id] = {
@@ -669,7 +689,7 @@ export function transitionUnitStatus(
   nowIso = new Date().toISOString(),
 ): Record<ID, WorkUnit> {
   const target = currentUnits[id]
-  if (!target) return currentUnits
+  if (!target || !isWorkStatus(status)) return currentUnits
 
   const next: Record<ID, WorkUnit> = { ...currentUnits }
   const isBecomingDone = status === 'done' && target.status !== 'done'
