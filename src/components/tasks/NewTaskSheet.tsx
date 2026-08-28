@@ -98,6 +98,22 @@ export function NewTaskSheet({ onClose, onCreated }: { onClose: () => void; onCr
     return parseQuickAdd(raw, courses).title
   }, [draft.title, mode, courses])
 
+  const applyDetected = () => {
+    if (!detected) return
+    const { p } = detected
+    setDraft((d) => ({
+      ...d,
+      title: p.title,
+      courseId: p.courseId ?? d.courseId,
+      date: p.dueExplicit ? dateValue(p.due) : d.date,
+      time: p.dueExplicit ? `${pad(p.due.getHours())}:${pad(p.due.getMinutes())}` : d.time,
+      kind: p.kind,
+      weight: p.weight != null ? String(p.weight) : d.weight,
+      estimateMin: p.estimateMin != null ? String(p.estimateMin) : d.estimateMin,
+    }))
+    setApplied(true)
+  }
+
   const submit = (andAnother: boolean) => {
     if (!valid) return
     const due = new Date(`${draft.date}T${draft.time || '23:59'}`)
@@ -172,6 +188,8 @@ export function NewTaskSheet({ onClose, onCreated }: { onClose: () => void; onCr
           now={now}
           cleanTitle={cleanTitle}
           dueLabel={fmtDay(new Date(`${draft.date}T${draft.time || '23:59'}`))}
+          detected={detected}
+          onApplyDetected={applyDetected}
           onChange={(patch) => {
             if ('courseId' in patch || 'newCourseCode' in patch) touched.current.course = true
             if ('date' in patch) touched.current.due = true
@@ -206,20 +224,7 @@ export function NewTaskSheet({ onClose, onCreated }: { onClose: () => void; onCr
         {detected && (
           <button
             type="button"
-            onClick={() => {
-              const { p } = detected
-              setDraft((d) => ({
-                ...d,
-                title: p.title,
-                courseId: p.courseId ?? d.courseId,
-                date: p.dueExplicit ? dateValue(p.due) : d.date,
-                time: p.dueExplicit ? `${pad(p.due.getHours())}:${pad(p.due.getMinutes())}` : d.time,
-                kind: p.kind,
-                weight: p.weight != null ? String(p.weight) : d.weight,
-                estimateMin: p.estimateMin != null ? String(p.estimateMin) : d.estimateMin,
-              }))
-              setApplied(true)
-            }}
+            onClick={applyDetected}
             className="-mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-tint hover:bg-tint-2 transition-colors text-left"
           >
             <Sparkles size={14} className="shrink-0 text-ink-3" />

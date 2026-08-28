@@ -22,6 +22,8 @@ export interface QuickAddPaneProps {
   now: number
   cleanTitle: string
   dueLabel: string
+  detected?: { bits: string[] } | null
+  onApplyDetected?: () => void
   onChange: (patch: Partial<QuickAddValue>) => void
   onSubmit: () => void
   onSubmitAndRepeat: () => void
@@ -33,6 +35,8 @@ export function QuickAddPane({
   now,
   cleanTitle,
   dueLabel,
+  detected,
+  onApplyDetected,
   onChange,
   onSubmit,
   onSubmitAndRepeat,
@@ -62,6 +66,18 @@ export function QuickAddPane({
       <p className="-mt-3 text-[12px] leading-snug text-ink-3">
         Quick add creates work to do. For an in-person exam time, use Plan → Customize → Exam time.
       </p>
+      {detected && (
+        <button
+          type="button"
+          onClick={onApplyDetected}
+          className="-mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-tint hover:bg-tint-2 transition-colors text-left"
+        >
+          <span className="text-[12.5px] text-ink-2 flex-1 leading-snug">
+            Read that as <span className="text-ink font-medium">{detected.bits.join(' · ')}</span>
+          </span>
+          <span className="text-[12.5px] font-semibold text-ink shrink-0">Review</span>
+        </button>
+      )}
 
       <section>
         <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-3 mb-2">Course</p>
