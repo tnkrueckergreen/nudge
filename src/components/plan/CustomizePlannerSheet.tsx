@@ -265,7 +265,15 @@ export function CustomizePlannerSheet({
         }
       >
         <div className="flex flex-col gap-4">
-          <Field label={allDay ? 'What should this break be called?' : 'What is it?'}>
+          <Field
+            label={
+              allDay
+                ? 'What should this break be called?'
+                : eventDraft.kind === 'exam'
+                  ? 'Exam name'
+                  : 'What is it?'
+            }
+          >
             <Input
               data-autofocus
               value={eventDraft.title}

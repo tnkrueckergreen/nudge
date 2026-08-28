@@ -82,11 +82,12 @@ export function NewTaskSheet({ onClose, onCreated }: { onClose: () => void; onCr
     if (applied || draft.title.trim().length < 4) return null
     const p = parseQuickAdd(draft.title, courses)
     const bits: string[] = []
+    if (p.kind !== 'assignment') bits.push(KIND_LABEL[p.kind])
     if (p.courseId) bits.push(courses.find((c) => c.id === p.courseId)?.code ?? '')
     if (p.dueExplicit) bits.push(p.due.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' }))
     if (p.weight != null) bits.push(`${p.weight}%`)
     if (p.estimateMin != null) bits.push(fmtDuration(p.estimateMin))
-    return bits.length && p.title !== draft.title ? { p, bits } : null
+    return bits.length && (p.title !== draft.title || p.kind !== 'assignment') ? { p, bits } : null
   }, [draft.title, courses, applied])
 
   const valid = draft.title.trim().length > 0 && !!draft.date

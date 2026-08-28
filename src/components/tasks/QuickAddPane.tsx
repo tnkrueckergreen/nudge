@@ -59,6 +59,9 @@ export function QuickAddPane({
           else onSubmit()
         }}
       />
+      <p className="-mt-3 text-[12px] leading-snug text-ink-3">
+        Quick add creates work to do. For an in-person exam time, use Plan → Customize → Exam time.
+      </p>
 
       <section>
         <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-3 mb-2">Course</p>

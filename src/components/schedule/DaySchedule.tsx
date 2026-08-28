@@ -291,7 +291,7 @@ function EventRow({ entry, now }: { entry: AgendaEntry; now: number }) {
     event.kind === 'custom_class'
       ? 'Class'
       : event.kind === 'exam'
-        ? 'Exam'
+        ? 'Exam time'
         : event.kind === 'blocked_time'
           ? 'Blocked time'
           : event.kind === 'reading_break'
@@ -325,7 +325,7 @@ function EventRow({ entry, now }: { entry: AgendaEntry; now: number }) {
       <div className="min-w-0 flex-1">
         <p className={cx('flex items-center gap-1.5 min-w-0 text-[13px] font-medium leading-[17px]', past ? 'text-ink-3' : exam ? 'text-[var(--c-critical-ink)]' : 'text-ink')}>
           <span className="truncate">{event.title}</span>
-          {exam && <span className="ui-chip ui-chip-critical shrink-0">Exam</span>}
+          {exam && <span className="ui-chip ui-chip-critical shrink-0">Exam time</span>}
         </p>
         <p className="text-[11.5px] text-ink-3 tnum leading-tight mt-0.5 truncate">
           <span className="sr-only">{timeLine} · </span>
