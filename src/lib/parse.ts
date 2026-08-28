@@ -7,6 +7,7 @@ export interface Parsed {
   courseId: string | null
   courseCode: string | null
   kind: TaskKind
+  kindExplicit: boolean
   due: Date
 
   dueExplicit: boolean
@@ -14,21 +15,171 @@ export interface Parsed {
   estimateMin?: number
 }
 
-const KIND_WORDS: [RegExp, TaskKind][] = [
-  [/\b(essay|paper|response paper|term paper|writing)\b/i, 'essay'],
-  [/\b(problem set|pset|ps\d*|webwork|homework|hw)\b/i, 'problemset'],
-  [/\b(project|app|build)\b/i, 'project'],
-  [/\b(reading|read|chapter|chapters|ch\.?\s?\d+)\b/i, 'reading'],
-  [/\b(take[\s-]?home|open[\s-]?book)\s+(exam|test)\b/i, 'takehome'],
-  [/\b(quiz|test)\b/i, 'quiz'],
-  [/\b(midterm|mt)\b/i, 'midterm'],
-  [/\bfinal\b/i, 'final'],
-  [/\b(lab|report)\b/i, 'lab'],
-  [/\b(presentation|present|slides|talk)\b/i, 'presentation'],
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
+const phrasePattern = (phrases: string[]) => {
+  const alternatives = phrases
+    .sort((a, b) => b.length - a.length)
+    .map((phrase) =>
+      phrase
+        .trim()
+        .split(/[\s-]+/)
+        .map(escapeRegex)
+        .join('[\\s-]+'),
+    )
+  return new RegExp(`(?<![A-Za-z0-9])(?:${alternatives.join('|')})(?![A-Za-z0-9])`, 'i')
+}
+
+/**
+ * These are intentionally conversational rather than just formal labels.
+ * Quick Add should understand the shorthand a student is likely to type,
+ * while leaving an unqualified "exam" as a generic assignment.
+ */
+const KIND_WORDS: [RegExp, TaskKind][] = [
   [
-    /\b(laundry|dishes|groceries|grocery|shopping|clean|cleaning|tidy|vacuum|bins|rubbish|trash|chores?|errands?|appointment|dentist|doctor|haircut|renew|pharmacy|prescription|bank|post office|package|packing|pack|move|birthday|gift|present for|call (?:mum|mom|dad|home)|laundromat|rent|bills?)\b/i,
+    phrasePattern([
+      'take-home exam', 'take home exam', 'takehome exam', 'open-book exam', 'open book exam',
+      'at-home exam', 'at home exam', 'home-based exam', 'unsupervised exam', 'untimed exam',
+      '24-hour exam', '48-hour exam', '72-hour exam', 'take-home midterm', 'take home midterm',
+      'take-home final', 'take home final', 'take-home quiz', 'take home quiz', 'take-home test',
+      'take home test', 'take-home assessment', 'take home assessment', 'take-home assignment',
+      'take home assignment', 'open-book test', 'open book test', 'open-notes exam',
+      'open notes exam', 'open-resource exam', 'open resources exam', 'take-home assessment',
+    ]),
+    'takehome',
+  ],
+  [
+    phrasePattern([
+      'oral presentation', 'oral report', 'class presentation', 'class talk', 'group presentation',
+      'group talk', 'poster presentation', 'poster session', 'slide deck', 'slides', 'powerpoint',
+      'power point', 'ppt', 'presentation deck', 'presentation slides', 'speaking assignment',
+      'public speaking', 'thesis defense', 'project defense', 'viva voce', 'viva', 'demo',
+      'demonstration', 'showcase', 'pitch deck', 'pitch', 'seminar presentation', 'seminar talk',
+      'lecture talk', 'presentation', 'present', 'presenting', 'talk', 'speech',
+    ]),
+    'presentation',
+  ],
+  [
+    phrasePattern([
+      'lab practical exam', 'practical lab', 'laboratory report', 'experiment report',
+      'experimental report', 'lab assignment', 'lab exercise', 'lab work', 'lab practical',
+      'lab session', 'lab prep', 'lab preparation', 'lab report', 'lab write-up', 'lab writeup',
+      'lab notebook', 'lab notes', 'lab worksheet', 'lab handout', 'lab questions', 'lab problems',
+      'lab investigation', 'field lab', 'computer lab', 'wet lab', 'dry lab', 'lab exam',
+      'lab test', 'lab submission', 'laboratory', 'experiment', 'experiments', 'lab', 'labs',
+    ]),
+    'lab',
+  ],
+  [
+    phrasePattern([
+      'group project', 'team project', 'course project', 'capstone project', 'final project',
+      'term project', 'semester project', 'research project', 'design project', 'software project',
+      'coding project', 'programming project', 'app project', 'build project', 'prototype project',
+      'portfolio project', 'independent project', 'collaborative project', 'studio project',
+      'practicum project', 'implementation project', 'project proposal', 'project plan',
+      'project report', 'project brief', 'project milestone', 'project deliverable', 'project work',
+      'prototype', 'project', 'projects', 'app', 'build',
+    ]),
+    'project',
+  ],
+  [
+    phrasePattern([
+      'problem set', 'problemset', 'homework set', 'exercise set', 'practice problems',
+      'assigned problems', 'problem sheet', 'problem list', 'problem collection', 'tutorial sheet',
+      'assignment problems', 'online homework', 'online problems', 'coding exercises',
+      'programming exercises', 'math exercises', 'math problems', 'physics problems',
+      'calculus problems', 'questions to solve', 'questions', 'exercises', 'problems',
+      'webwork', 'web work', 'myopenmath', 'mastering homework', 'aleks homework', 'homework',
+      'hw', 'pset', 'ps1', 'ps2', 'ps3', 'ps4', 'ps5', 'ps6', 'ps7', 'ps8',
+    ]),
+    'problemset',
+  ],
+  [
+    phrasePattern([
+      'assigned reading', 'course reading', 'required reading', 'textbook chapter',
+      'textbook chapters', 'book chapter', 'book section', 'journal article', 'research article',
+      'article to read', 'paper to read', 'reading response', 'reading notes', 'reading questions',
+      'reading list', 'reading packet', 'reading material', 'reading materials', 'read through',
+      'close read', 'close reading', 'skim reading', 'skim the chapter', 'read the chapter',
+      'read the article', 'read the paper', 'read pages', 'pages to read', 'chapter',
+      'chapters', 'article', 'articles', 'reading', 'read',
+    ]),
+    'reading',
+  ],
+  [
+    phrasePattern([
+      'quiz prep', 'quiz preparation', 'quiz review', 'quiz study', 'study for quiz',
+      'study for quizzes', 'prepare for quiz', 'prepare for quizzes', 'practice quiz',
+      'practice quizzes', 'mock quiz', 'pop quiz', 'in-class quiz', 'online quiz', 'take quiz',
+      'complete quiz', 'weekly quiz', 'chapter quiz', 'unit quiz', 'knowledge check',
+      'test prep', 'test preparation', 'test review', 'test study', 'study for test',
+      'study for tests', 'prepare for test', 'prepare for tests', 'practice test',
+      'practice tests', 'mock test', 'unit test', 'chapter test', 'weekly test', 'quiz',
+      'quizzes', 'test', 'tests',
+    ]),
+    'quiz',
+  ],
+  [
+    phrasePattern([
+      'midterm exam', 'mid-term exam', 'midterm test', 'mid-term test', 'midterm prep',
+      'midterm preparation', 'prepare for midterm', 'prepare for mid-term', 'study for midterm',
+      'study for mid-term', 'review for midterm', 'midterm review', 'midterm study',
+      'midterm practice', 'practice midterm', 'mock midterm', 'midterm mock', 'midterm questions',
+      'midterm problems', 'midterm notes', 'midterm flashcards', 'midterm flash card',
+      'midterm revision', 'midterm revision session', 'mid-semester exam', 'mid semester exam',
+      'middle exam', 'first midterm', 'second midterm', 'midterm', 'mid-term', 'midterms', 'mt',
+    ]),
+    'midterm',
+  ],
+  [
+    phrasePattern([
+      'essay assignment', 'essay paper', 'research paper', 'position paper', 'term paper',
+      'reflection paper', 'response paper', 'analytical paper', 'analysis paper', 'course paper',
+      'academic paper', 'written essay', 'argumentative essay', 'persuasive essay',
+      'compare and contrast essay', 'expository essay', 'literature essay', 'critical essay',
+      'short paper', 'long paper', 'paper draft', 'essay draft', 'paper outline', 'essay outline',
+      'writing piece', 'writing assignment', 'composition assignment', 'written assignment',
+      'paper', 'papers', 'essay', 'essays', 'writing', 'composition',
+    ]),
+    'essay',
+  ],
+  [
+    phrasePattern([
+      'final exam', 'final test', 'final prep', 'final preparation', 'prepare for final',
+      'study for final', 'review for final', 'final review', 'final study', 'final practice',
+      'practice final', 'mock final', 'final mock', 'final questions', 'final problems',
+      'final notes', 'final flashcards', 'final flash card', 'final revision',
+      'final revision session', 'end-of-term exam', 'end of term exam', 'end-of-semester exam',
+      'end of semester exam', 'semester final', 'course final', 'comprehensive final',
+      'cumulative final', 'finals', 'final',
+    ]),
+    'final',
+  ],
+  [
+    phrasePattern([
+      'personal task', 'personal errand', 'household task', 'household chore', 'daily chore',
+      'chores', 'chore', 'errands', 'errand', 'laundry', 'wash clothes', 'do laundry',
+      'dishes', 'do dishes', 'grocery shopping', 'grocery run', 'groceries', 'shopping',
+      'vacuum', 'vacuuming', 'clean room', 'cleaning', 'tidy room', 'tidy up', 'take out trash',
+      'take out bins', 'trash', 'rubbish', 'rent', 'pay bills', 'bills', 'bank errand',
+      'post office', 'pharmacy', 'prescription', 'dentist appointment', 'doctor appointment',
+      'haircut', 'call mom', 'call mum', 'call dad', 'call home', 'birthday gift', 'buy gift',
+      'pack', 'packing', 'move', 'renew', 'appointment', 'personal', 'home task',
+    ]),
     'personal',
+  ],
+  [
+    phrasePattern([
+      'graded assignment', 'class assignment', 'course assignment', 'written assignment',
+      'weekly assignment', 'module assignment', 'unit assignment', 'online assignment',
+      'required assignment', 'academic assignment', 'assignment task', 'coursework task',
+      'course work', 'coursework', 'schoolwork', 'classwork', 'graded work', 'written work',
+      'required work', 'course requirement', 'learning activity', 'class activity',
+      'learning task', 'academic task', 'work to submit', 'work to hand in', 'hand-in',
+      'hand in', 'turn-in', 'turn in', 'deliverable', 'submission', 'assignment', 'task',
+      'activity', 'exercise', 'worksheet',
+    ]),
+    'assignment',
   ],
 ]
 
@@ -216,9 +367,11 @@ export function parseQuickAdd(raw: string, courses: Course[], now: Date = new Da
   if (!day && hour != null && +due < +now) due.setDate(due.getDate() + 1)
 
   let kind: TaskKind = 'assignment'
+  let kindExplicit = false
   for (const [re, k] of KIND_WORDS) {
     if (re.test(text)) {
       kind = k
+      kindExplicit = true
       break
     }
   }
@@ -243,7 +396,7 @@ export function parseQuickAdd(raw: string, courses: Course[], now: Date = new Da
   }
   title = title.charAt(0).toUpperCase() + title.slice(1)
 
-  return { title, courseId, courseCode, kind, due, dueExplicit, weight, estimateMin }
+  return { title, courseId, courseCode, kind, kindExplicit, due, dueExplicit, weight, estimateMin }
 }
 
 const KIND_TITLES: Record<TaskKind, string> = {
