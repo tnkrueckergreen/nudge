@@ -72,7 +72,7 @@ export function Settings({ open, onClose }: { open: boolean; onClose: () => void
             />
           </Field>
 
-          <Field group label="Color theme" hint="Colors every screen. Your course colors stay as they are.">
+          <Field group label="Colour theme" hint="That's a lot of colour themes, huh? Pick your poison. And do forgive the pretentious naming.">
             <div role="radiogroup" aria-label="Color theme" className="grid grid-cols-3 gap-2">
               {PALETTES.map((p) => {
                 const active = settings.palette === p.id
