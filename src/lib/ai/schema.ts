@@ -39,6 +39,7 @@ export const TASK_KINDS = [
   'quiz',
   'midterm',
   'final',
+  'takehome',
   'lab',
   'presentation',
 
@@ -178,7 +179,7 @@ const buildGroups = (courseCodes: string[]): Record<ActionGroup, ReturnType<type
         type: 'string',
         enum: [...TASK_KINDS],
         description:
-          'What sort of work this is. Use "personal" for everything that is not coursework — a chore, an errand, an appointment, anything filed under NONE. The other kinds are graded work and carry a grade weight and an effort default with them.',
+          'What sort of work this is. Use "midterm" or "final" for preparation work, "takehome" for a take-home exam, and "quiz" for quiz or test preparation. Use "personal" for everything that is not coursework — a chore, an errand, an appointment, anything filed under NONE. The other kinds are graded work and carry a grade weight and an effort default with them.',
       },
 
       weight: int('Percent of the final grade, as the student said it: "worth 6%" is 6, "a quarter of the grade" is 25. Never 0.25, never scaled up. Omit entirely unless they stated it.', 0, 100),

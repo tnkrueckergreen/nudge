@@ -45,7 +45,7 @@ const EVENT_COPY: Record<PlannerEventKind, { title: string; body: string; placeh
   },
   exam: {
     title: 'Exam time',
-    body: 'Reserve the actual sitting. Add your midterm or final prep as a task separately.',
+    body: 'Reserve the actual sitting. Add prep, quizzes, and take-home exams as tasks separately.',
     placeholder: 'ECON 230 midterm',
   },
   blocked_time: {

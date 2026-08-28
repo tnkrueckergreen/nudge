@@ -322,7 +322,7 @@ export function AssignmentSheet({
             <Field
               label="Work type"
               className="col-span-2 sm:col-span-1"
-              hint="Prep is study work; add the actual exam time from Plan."
+              hint="Prep and take-home exams are work items; use Plan only for an in-person exam sitting."
             >
               <Select value={a.kind} onChange={(e) => patch({ kind: e.target.value as TaskKind })}>
                 {KINDS.map((k) => (

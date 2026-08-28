@@ -26,6 +26,7 @@ const TASK_KINDS: ReadonlySet<string> = new Set([
   'quiz',
   'midterm',
   'final',
+  'takehome',
   'lab',
   'presentation',
   'personal',

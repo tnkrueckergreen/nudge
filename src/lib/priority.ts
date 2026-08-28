@@ -13,6 +13,7 @@ const KIND_EFFORT: Record<TaskKind, number> = {
   midterm: 360,
   project: 480,
   final: 600,
+  takehome: 450,
 }
 
 const KIND_WEIGHT: Record<TaskKind, number> = {
@@ -27,6 +28,7 @@ const KIND_WEIGHT: Record<TaskKind, number> = {
   midterm: 20,
   project: 20,
   final: 35,
+  takehome: 25,
 }
 
 export const KIND_LABEL: Record<TaskKind, string> = {
@@ -36,14 +38,15 @@ export const KIND_LABEL: Record<TaskKind, string> = {
   problemset: 'Problem set',
   project: 'Project',
   reading: 'Reading',
-  quiz: 'Quiz',
+  quiz: 'Quiz / test prep',
   midterm: 'Midterm prep',
   final: 'Final prep',
+  takehome: 'Take-home exam',
   lab: 'Lab',
   presentation: 'Presentation',
 }
 
-const CHUNKABLE: TaskKind[] = ['essay', 'project', 'presentation', 'midterm', 'final', 'personal']
+const CHUNKABLE: TaskKind[] = ['essay', 'project', 'presentation', 'midterm', 'final', 'takehome', 'personal']
 
 export const defaultWeight = (kind: TaskKind) => KIND_WEIGHT[kind] ?? 10
 
@@ -369,6 +372,13 @@ const PLAYBOOKS: Partial<Record<TaskKind, string[]>> = {
     'Review the last third',
     'Full practice exam, timed',
     'Patch the weak spots',
+  ],
+  takehome: [
+    'Read the instructions and list what to submit',
+    'Gather notes and allowed sources',
+    'Draft the answers',
+    'Check citations and requirements',
+    'Proofread and submit',
   ],
   lab: ['Read the handout', 'Prep data / setup', 'Run the work', 'Write the report'],
   reading: ['Skim headings + conclusion', 'Close read', 'Write 5 bullet summary'],

@@ -244,7 +244,7 @@ export function NewTaskSheet({ onClose, onCreated }: { onClose: () => void; onCr
           <Field
             label="Work type"
             className="col-span-2 sm:col-span-1"
-            hint="Midterm prep and Final prep are study work. Add the exam sitting from Plan."
+            hint="Prep and take-home exams are work items. Use Plan only for an in-person exam sitting."
           >
             <Select
               value={draft.kind}

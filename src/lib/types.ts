@@ -56,6 +56,7 @@ export type TaskKind =
   | 'quiz'
   | 'midterm'
   | 'final'
+  | 'takehome'
   | 'lab'
   | 'presentation'
   | 'personal'
