@@ -249,7 +249,7 @@ export function Plan({
         </div>
         {customize && (
           <CustomizePlannerSheet
-            initialDate={weekStart}
+            initialDate={weekOffset === 0 ? new Date(now) : weekStart}
             initial={customize.type === 'home' ? undefined : customize}
             onClose={() => setCustomize(null)}
           />
@@ -427,7 +427,7 @@ export function Plan({
       )}
       {customize && (
         <CustomizePlannerSheet
-          initialDate={weekStart}
+          initialDate={weekOffset === 0 ? new Date(now) : weekStart}
           initial={customize.type === 'home' ? undefined : customize}
           onClose={() => setCustomize(null)}
         />
