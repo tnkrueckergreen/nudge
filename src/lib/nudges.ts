@@ -1,4 +1,4 @@
-import type { Assignment, Course, DayKey, Session, StudyBlock } from './types'
+import type { Assignment, Course, DayKey, PlannerEvent, Session, StudyBlock } from './types'
 import type { Ranked, Calibration, DayLoad } from './priority'
 import { STREAK_MILESTONES, STREAK_MIN_MINUTES, type Streak } from './stats'
 import { BANKS, type Tone, fill, line } from './copy'
@@ -34,6 +34,7 @@ export interface NudgeCtx {
   courses: Course[]
   assignments: Assignment[]
   blocks: StudyBlock[]
+  plannerEvents: PlannerEvent[]
   sessions: Session[]
   streak: Streak
   calibration: Calibration
@@ -189,28 +190,27 @@ export function buildNudges(ctx: NudgeCtx): Nudge[] {
     })
   }
 
-  for (const c of ctx.courses) {
-    if (c.archived) continue
-    for (const [key, iso] of [
-      ['midterm', c.midterm],
-      ['final', c.final],
-    ] as const) {
-      if (!iso) continue
-      const d = daysBetween(now, +new Date(iso))
-      if (d < 0 || d > 7) continue
-      push({
-        id: `exam:${c.id}:${key}`,
-        kind: d <= 4 ? 'warn' : 'info',
-        subject: c.id,
-        text: fill(line(BANKS.exam, tone, seed + c.id + key, (ctx.staleByCourse.get(c.id) ?? 0) >= 4), {
-          c: c.code,
-          k: key,
-          w: d === 0 ? 'today' : d === 1 ? 'tomorrow' : `in ${d} days`,
-        }),
-        weight: 600 - d * 12,
-        action: { type: 'course', label: 'Open course', courseId: c.id },
-      })
-    }
+  const courseById = new Map(ctx.courses.map((c) => [c.id, c]))
+  for (const event of ctx.plannerEvents) {
+    if (event.kind !== 'exam') continue
+    const d = daysBetween(now, +new Date(event.start))
+    if (d < 0 || d > 7) continue
+    const course = event.courseId ? courseById.get(event.courseId) : undefined
+    const subject = course?.code ?? 'upcoming'
+    push({
+      id: `exam:${event.id}`,
+      kind: d <= 4 ? 'warn' : 'info',
+      subject: event.id,
+      text: fill(line(BANKS.exam, tone, seed + event.id, course ? (ctx.staleByCourse.get(course.id) ?? 0) >= 4 : false), {
+        c: subject,
+        k: event.title,
+        w: d === 0 ? 'today' : d === 1 ? 'tomorrow' : `in ${d} days`,
+      }),
+      weight: 600 - d * 12,
+      action: course
+        ? { type: 'course', label: 'Open course', courseId: course.id }
+        : { type: 'plan', label: 'Open planner' },
+    })
   }
 
   if (streak.atRisk && streak.current >= 2 && hour >= 16) {

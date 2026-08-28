@@ -169,6 +169,7 @@ function CourseCard({
   assignmentsCount: number
 }) {
   const assignments = useStore((s) => s.assignments)
+  const plannerEvents = useStore((s) => s.plannerEvents)
   const outlook = useMemo(() => gradeOutlook(course, assignments), [course, assignments])
   const stale = derived.staleByCourse.get(course.id) ?? 0
   const minutes = derived.byCourse.get(course.id) ?? 0
@@ -176,9 +177,10 @@ function CourseCard({
   const oneRoom = parsePlace(course.room)
 
   const exams = [
-    course.midterm ? { label: 'Midterm', iso: course.midterm } : null,
-    course.final ? { label: 'Final', iso: course.final } : null,
-  ].filter(Boolean) as { label: string; iso: string }[]
+    ...plannerEvents
+      .filter((event) => event.kind === 'exam' && event.courseId === course.id)
+      .map((event) => ({ label: event.title, iso: event.start })),
+  ]
   const nextExam = exams
     .map((e) => ({ ...e, days: daysBetween(now, +new Date(e.iso)) }))
     .filter((e) => e.days >= 0)

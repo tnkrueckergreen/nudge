@@ -24,6 +24,7 @@ export function useDerived(now: number) {
   const todayList = useStore((s) => s.todayList)
   const assignments = useStore((s) => s.assignments)
   const blocks = useStore((s) => s.blocks)
+  const plannerEvents = useStore((s) => s.plannerEvents)
   const banked = useStore((s) => s.sessions)
   const settings = useStore((s) => s.settings)
   const timer = useStore((s) => s.timer)
@@ -78,6 +79,7 @@ export function useDerived(now: number) {
       courses,
       assignments,
       blocks,
+      plannerEvents,
       sessions,
       streak,
       calibration,
@@ -135,7 +137,7 @@ export function useDerived(now: number) {
       doneCount,
       todayKey,
     }
-  }, [courses, assignments, blocks, sessions, settings, todayList, now])
+  }, [courses, assignments, blocks, plannerEvents, sessions, settings, todayList, now])
 }
 
 export type Derived = ReturnType<typeof useDerived>

@@ -41,8 +41,6 @@ export interface Course {
   currentGrade?: number
   targetGrade?: number
   meetings: Meeting[]
-  midterm?: Iso
-  final?: Iso
   archived?: boolean
   createdAt: Iso
 }

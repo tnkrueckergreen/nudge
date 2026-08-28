@@ -9,8 +9,6 @@ import { ClassTimesEditor } from './ClassTimesEditor'
 
 const SLOTS: ColorSlot[] = [1, 2, 3, 4, 5, 6, 7, 8]
 
-const toDateInput = (iso?: string) => (iso ? new Date(iso).toISOString().slice(0, 10) : '')
-
 export function CourseSheet({
   course,
   onClose,
@@ -35,8 +33,6 @@ export function CourseSheet({
     currentGrade: course?.currentGrade,
     targetGrade: course?.targetGrade ?? 85,
     meetings: course?.meetings ?? [],
-    midterm: course?.midterm,
-    final: course?.final,
   }))
 
   const set = <K extends keyof typeof draft>(k: K, v: (typeof draft)[K]) => setDraft((d) => ({ ...d, [k]: v }))
@@ -195,25 +191,11 @@ export function CourseSheet({
                 onChange={(e) => set('targetGrade', e.target.value === '' ? undefined : Number(e.target.value))}
               />
             </Field>
-            <Field label="Midterm date" className="col-span-2 sm:col-span-1">
-              <Input
-                type="date"
-                value={toDateInput(draft.midterm)}
-                onChange={(e) =>
-                  set('midterm', e.target.value ? new Date(`${e.target.value}T18:00`).toISOString() : undefined)
-                }
-              />
-            </Field>
-            <Field label="Final exam date" className="col-span-2 sm:col-span-1">
-              <Input
-                type="date"
-                value={toDateInput(draft.final)}
-                onChange={(e) =>
-                  set('final', e.target.value ? new Date(`${e.target.value}T09:00`).toISOString() : undefined)
-                }
-              />
-            </Field>
           </div>
+
+          <p className="rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-[12px] leading-relaxed text-ink-2">
+            Schedule exams from Plan → Customize planner. That keeps the exact date and time in one place.
+          </p>
 
           <ClassTimesEditor
             meetings={draft.meetings}

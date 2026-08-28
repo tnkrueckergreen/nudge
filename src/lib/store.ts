@@ -154,7 +154,7 @@ export const DEFAULT_SETTINGS: Settings = {
 }
 
 const EMPTY: AppState = {
-  version: 3,
+  version: 4,
   courses: [],
   assignments: [],
   blocks: [],
@@ -176,6 +176,52 @@ interface UndoEntry {
   label: string
   snapshot: Snapshot
   at: number
+}
+
+type LegacyCourse = Course & {
+  midterm?: string
+  final?: string
+}
+
+function migrateLegacyCourseExams(
+  inputCourses: Course[] = [],
+  inputEvents: PlannerEvent[] = [],
+): { courses: Course[]; plannerEvents: PlannerEvent[] } {
+  const plannerEvents = [...inputEvents]
+  const migratedKeys = new Set(
+    plannerEvents
+      .filter((event) => event.kind === 'exam' && event.courseId)
+      .map((event) => `${event.courseId}:${dayKey(event.start)}`),
+  )
+
+  const courses = inputCourses.map((course) => {
+    const legacy = course as LegacyCourse
+    for (const [label, iso] of [
+      ['Midterm', legacy.midterm],
+      ['Final', legacy.final],
+    ] as const) {
+      if (!iso || Number.isNaN(+new Date(iso))) continue
+      const key = `${course.id}:${dayKey(iso)}`
+      if (migratedKeys.has(key)) continue
+      const start = +new Date(iso)
+      plannerEvents.push({
+        id: uid(),
+        title: `${course.code} ${label}`,
+        kind: 'exam',
+        start: new Date(start).toISOString(),
+        end: new Date(start + 3 * 60 * 60_000).toISOString(),
+        allDay: false,
+        courseId: course.id,
+        createdAt: new Date().toISOString(),
+      })
+      migratedKeys.add(key)
+    }
+
+    const { midterm: _midterm, final: _final, ...withoutLegacyExams } = legacy
+    return withoutLegacyExams
+  })
+
+  return { courses, plannerEvents }
 }
 
 export interface NudgeStore extends AppState {
@@ -540,8 +586,6 @@ export const useStore = create<NudgeStore>()(
             currentGrade: input.currentGrade,
             targetGrade: input.targetGrade ?? 85,
             meetings: input.meetings ?? [],
-            midterm: input.midterm,
-            final: input.final,
             createdAt: new Date().toISOString(),
           }
           mutate('Added course', (s) => ({ courses: [...s.courses, course] }))
@@ -1206,7 +1250,7 @@ export const useStore = create<NudgeStore>()(
 
           const fullSample = {
             ...sample,
-            plannerEvents: [],
+            plannerEvents: sample.plannerEvents ?? [],
             scheduleOverrides: [],
             todayList: sample.todayList ?? [],
             settings: {
@@ -1231,12 +1275,13 @@ export const useStore = create<NudgeStore>()(
           undoStack.push({ label: 'Imported data', snapshot: snapshotOf(get()), at: Date.now() })
           const settings = { ...DEFAULT_SETTINGS, ...(next.settings ?? {}), onboarded: true }
           if (!isPaletteId(settings.palette)) settings.palette = DEFAULT_PALETTE
+          const migrated = migrateLegacyCourseExams(next.courses ?? [], next.plannerEvents ?? [])
           const nextState: AppState = {
-            version: 3,
-            courses: next.courses ?? [],
+            version: 4,
+            courses: migrated.courses,
             assignments: next.assignments ?? [],
             blocks: next.blocks ?? [],
-            plannerEvents: next.plannerEvents ?? [],
+            plannerEvents: migrated.plannerEvents,
             scheduleOverrides: next.scheduleOverrides ?? [],
             sessions: next.sessions ?? [],
             todayList: next.todayList ?? [],
@@ -1260,42 +1305,50 @@ export const useStore = create<NudgeStore>()(
     },
     {
       name: STORAGE_KEY,
-      version: 3,
+      version: 4,
       storage: createJSONStorage(resolveStorage),
 
       migrate: (persisted, version) => {
         const st = (persisted ?? {}) as Partial<AppState> & { timer?: unknown }
-        st.version = 3
-        if (version >= 3) return st as any
-        const t = st.timer as LegacyTimer | null | undefined
-        if (t && t.mode === 'focus' && typeof t.totalSec === 'number' && typeof t.endsAt === 'number') {
-          const stale = t.pausedSec == null && Date.now() - t.endsAt > STALE_MS
-          const remaining = t.pausedSec ?? Math.max(0, (t.endsAt - Date.now()) / 1000)
-          const workedSec = stale ? 0 : Math.min(t.totalSec, Math.max(0, t.totalSec - remaining))
-          const minutes = Math.round((workedSec / 60) * 10) / 10
-          if (minutes >= MIN_LOGGABLE_MIN) {
-            st.sessions = [
-              ...(st.sessions ?? []),
-              {
-                id: uid(),
-                courseId: t.courseId ?? null,
-                assignmentId: t.assignmentId ?? null,
-                blockId: t.blockId ?? null,
-                start: new Date(t.endsAt - t.totalSec * 1000).toISOString(),
-                minutes,
-                source: t.justStart ? 'juststart' : 'pomodoro',
-                createdAt: new Date().toISOString(),
-              },
-            ]
+        if (version < 3) {
+          const t = st.timer as LegacyTimer | null | undefined
+          if (t && t.mode === 'focus' && typeof t.totalSec === 'number' && typeof t.endsAt === 'number') {
+            const stale = t.pausedSec == null && Date.now() - t.endsAt > STALE_MS
+            const remaining = t.pausedSec ?? Math.max(0, (t.endsAt - Date.now()) / 1000)
+            const workedSec = stale ? 0 : Math.min(t.totalSec, Math.max(0, t.totalSec - remaining))
+            const minutes = Math.round((workedSec / 60) * 10) / 10
+            if (minutes >= MIN_LOGGABLE_MIN) {
+              st.sessions = [
+                ...(st.sessions ?? []),
+                {
+                  id: uid(),
+                  courseId: t.courseId ?? null,
+                  assignmentId: t.assignmentId ?? null,
+                  blockId: t.blockId ?? null,
+                  start: new Date(t.endsAt - t.totalSec * 1000).toISOString(),
+                  minutes,
+                  source: t.justStart ? 'juststart' : 'pomodoro',
+                  createdAt: new Date().toISOString(),
+                },
+              ]
+            }
           }
+          st.timer = null
         }
-        st.timer = null
+        const migrated = migrateLegacyCourseExams(st.courses ?? [], st.plannerEvents ?? [])
+        st.courses = migrated.courses
+        st.plannerEvents = migrated.plannerEvents
+        st.version = 4
         return st as any
       },
 
       merge: (persisted, current) => {
         const at = new Date().toISOString()
         const next = { ...current, ...(persisted as Partial<NudgeStore>) } as NudgeStore
+        const migrated = migrateLegacyCourseExams(next.courses, next.plannerEvents)
+        next.courses = migrated.courses
+        next.plannerEvents = migrated.plannerEvents
+        next.version = 4
         next.settings = { ...DEFAULT_SETTINGS, ...next.settings }
         next.plannerEvents ??= []
         next.scheduleOverrides ??= []
@@ -1393,7 +1446,7 @@ function buildSample(): Partial<AppState> {
     [1, 10 * 60 + 5, 11 * 60 + 25, 'lecture'],
     [3, 10 * 60 + 5, 11 * 60 + 25, 'lecture'],
     [3, 11 * 60 + 35, 12 * 60 + 25, 'tutorial', 'Trottier 2100'],
-  ], { title: 'Intro to Computer Science', midterm: iso(at(9, 18)), currentGrade: 79 })
+  ], { title: 'Intro to Computer Science', currentGrade: 79 })
 
   const math = mk('MATH 133', 3, 'Prof. Drury', 'Burnside 1B45', [
     [1, 13 * 60 + 5, 14 * 60 + 25, 'lecture'],
@@ -1415,6 +1468,19 @@ function buildSample(): Partial<AppState> {
   ], { title: 'Introduction to Psychology', currentGrade: 91 })
 
   const courses = [comp, math, poli, psyc]
+
+  const plannerEvents: PlannerEvent[] = [
+    {
+      id: uid(),
+      title: `${comp.code} Midterm`,
+      kind: 'exam',
+      start: iso(at(9, 18)),
+      end: iso(at(9, 21)),
+      allDay: false,
+      courseId: comp.id,
+      createdAt: iso(at(-9, 12)),
+    },
+  ]
 
   const A = (
     courseId: string,
@@ -1583,6 +1649,7 @@ function buildSample(): Partial<AppState> {
     courses,
     assignments,
     blocks,
+    plannerEvents,
     sessions,
 
     todayList: [

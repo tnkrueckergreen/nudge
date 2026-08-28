@@ -144,38 +144,17 @@ function useHorizon(derived: Derived, now: number): HorizonItem[] {
       })
     }
 
-    for (const c of courses) {
-      if (c.archived) continue
-      for (const [label, iso] of [
-        ['Midterm', c.midterm],
-        ['Final', c.final],
-      ] as const) {
-        if (!iso) continue
-        const at = +new Date(iso)
-        const d = daysBetween(now, at)
-        if (d < 0 || d > TO_DAYS) continue
-        out.push({
-          id: `${c.id}:${label}`,
-          at,
-          title: `${c.code} ${label.toLowerCase()}`,
-          course: c,
-
-          note: fmtDay(at),
-          exam: true,
-        })
-      }
-    }
-
     for (const event of plannerEvents) {
       if (event.kind !== 'exam') continue
       const at = +new Date(event.start)
       const d = daysBetween(now, at)
       if (d < 0 || d > TO_DAYS) continue
+      const course = event.courseId ? courseById.get(event.courseId) : undefined
       out.push({
         id: `planner-exam:${event.id}`,
         at,
         title: event.title,
-        course: event.courseId ? courseById.get(event.courseId) : undefined,
+        course,
         note: `${fmtDay(at)}${event.room ? ` · ${event.room}` : ''}`,
         exam: true,
         plannerEvent: event,
