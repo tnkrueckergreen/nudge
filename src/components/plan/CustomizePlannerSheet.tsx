@@ -45,7 +45,7 @@ const EVENT_COPY: Record<PlannerEventKind, { title: string; body: string; placeh
   },
   exam: {
     title: 'Exam time',
-    body: 'Reserve the actual sitting. Add prep, quizzes, and take-home exams as tasks separately.',
+    body: 'Note: add exam prep and take-homes as tasks separately.',
     placeholder: 'ECON 230 midterm',
   },
   blocked_time: {
@@ -418,7 +418,7 @@ export function CustomizePlannerSheet({
           <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.07em] text-ink-3">Add an exception</p>
           <div className="grid gap-2 sm:grid-cols-3">
             <AddCard icon={<GraduationCap size={17} />} title="One-time class" body="Guest lecture or make-up" onClick={() => openNewEvent('custom_class')} />
-            <AddCard icon={<ClipboardCheck size={17} />} title="Exam time" body="Reserve the actual sitting" onClick={() => openNewEvent('exam')} />
+            <AddCard icon={<ClipboardCheck size={17} />} title="Exam time" body="How fun!" onClick={() => openNewEvent('exam')} />
             <AddCard icon={<Clock3 size={17} />} title="Block time" body="Appointment or commitment" onClick={() => openNewEvent('blocked_time')} />
           </div>
         </section>
@@ -428,7 +428,7 @@ export function CustomizePlannerSheet({
           <div className="grid gap-2 sm:grid-cols-3">
             <AddCard icon={<BookOpen size={17} />} title="Reading break" body="A range of no-class days" onClick={() => openNewEvent('reading_break')} />
             <AddCard icon={<CalendarOff size={17} />} title="Holiday" body="Keep a day clear" onClick={() => openNewEvent('holiday')} />
-            <AddCard icon={<CalendarDays size={17} />} title="Different schedule" body="Use Monday on a Tuesday" onClick={() => openSchedule()} />
+            <AddCard icon={<CalendarDays size={17} />} title="Different schedule" body="e.g., use Monday on a Tuesday" onClick={() => openSchedule()} />
           </div>
         </section>
 
