@@ -410,7 +410,7 @@ export function CustomizePlannerSheet({
       open
       onClose={onClose}
       title="Customize planner"
-      description="Add the real-life exceptions your weekly schedule needs."
+      description="Add exams, breaks, and other exceptions to your schedule."
       size="lg"
     >
       <div className="flex flex-col gap-5">
