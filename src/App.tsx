@@ -547,7 +547,7 @@ const PLANNER_MOVES: [string, string][] = [
   ['Drag its top or bottom edge', 'Make it longer or shorter'],
   ['Click or drag empty space', 'Create a study block there'],
   ['Click a striped class', 'Edit that course’s class times'],
-  ['Alt + drag', 'Duplicate instead of move'],
+  ['⌥ + drag', 'Duplicate instead of move'],
   ['↑ ↓ on a selected block', 'Nudge by 15 minutes'],
   ['Shift + ↑ ↓', 'Resize by 15 minutes'],
   ['Space / Delete', 'Mark done · remove'],
