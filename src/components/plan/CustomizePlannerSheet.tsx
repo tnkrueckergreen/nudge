@@ -223,7 +223,7 @@ export function CustomizePlannerSheet({
     const day = scheduleDraft.scheduleDay === 'none' ? null : Number(scheduleDraft.scheduleDay)
     if (!scheduleDraft.date || (day !== null && (!Number.isInteger(day) || day < 0 || day > 6))) return
     store.upsertScheduleOverride({ date: scheduleDraft.date, scheduleDay: day, title: scheduleDraft.title })
-    const label = day == null ? 'No recurring classes' : `${WEEKDAYS[day]} schedule`
+    const label = day == null ? 'No classes' : `${WEEKDAYS[day]} schedule`
     toast(`Using ${label}`, { action: { label: 'Undo', run: () => store.undo() } })
     setScreen({ page: 'home' })
   }
@@ -390,7 +390,7 @@ export function CustomizePlannerSheet({
           </Field>
           <Field label="This date follows">
             <Select value={scheduleDraft.scheduleDay} onChange={(event) => updateSchedule('scheduleDay', event.target.value)}>
-              <option value="none">No recurring classes</option>
+              <option value="none">No classes</option>
               {WEEKDAYS.map((weekday, index) => <option key={weekday} value={index}>{weekday} schedule</option>)}
             </Select>
           </Field>
@@ -398,7 +398,7 @@ export function CustomizePlannerSheet({
             <Input value={scheduleDraft.title} onChange={(event) => updateSchedule('title', event.target.value)} placeholder="Monday schedule after holiday" />
           </Field>
           <p className="rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-[12.5px] leading-relaxed text-ink-2">
-            Study blocks stay put. Only recurring course meetings change for this date.
+            Note: study blocks stay put.
           </p>
         </div>
       </Sheet>
