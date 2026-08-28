@@ -319,7 +319,11 @@ export function AssignmentSheet({
                   ))}
               </Select>
             </Field>
-            <Field label="Type" className="col-span-2 sm:col-span-1">
+            <Field
+              label="Work type"
+              className="col-span-2 sm:col-span-1"
+              hint="Prep is study work; add the actual exam time from Plan."
+            >
               <Select value={a.kind} onChange={(e) => patch({ kind: e.target.value as TaskKind })}>
                 {KINDS.map((k) => (
                   <option key={k} value={k}>

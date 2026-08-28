@@ -194,7 +194,7 @@ export function CourseSheet({
           </div>
 
           <p className="rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-[12px] leading-relaxed text-ink-2">
-            Schedule exams from Plan → Customize planner. That keeps the exact date and time in one place.
+            Add the actual exam sitting from Plan → Customize planner. Keep the study work as a Midterm prep or Final prep task.
           </p>
 
           <ClassTimesEditor

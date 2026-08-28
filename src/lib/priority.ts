@@ -37,8 +37,8 @@ export const KIND_LABEL: Record<TaskKind, string> = {
   project: 'Project',
   reading: 'Reading',
   quiz: 'Quiz',
-  midterm: 'Midterm',
-  final: 'Final',
+  midterm: 'Midterm prep',
+  final: 'Final prep',
   lab: 'Lab',
   presentation: 'Presentation',
 }

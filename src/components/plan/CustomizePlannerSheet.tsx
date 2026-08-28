@@ -44,8 +44,8 @@ const EVENT_COPY: Record<PlannerEventKind, { title: string; body: string; placeh
     placeholder: 'Guest lecture',
   },
   exam: {
-    title: 'Exam',
-    body: 'Reserve the exact time so it is obvious on your week and kept clear for planning.',
+    title: 'Exam time',
+    body: 'Reserve the actual sitting. Add your midterm or final prep as a task separately.',
     placeholder: 'ECON 230 midterm',
   },
   blocked_time: {
@@ -410,7 +410,7 @@ export function CustomizePlannerSheet({
           <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.07em] text-ink-3">Add an exception</p>
           <div className="grid gap-2 sm:grid-cols-3">
             <AddCard icon={<GraduationCap size={17} />} title="One-time class" body="Guest lecture or make-up" onClick={() => openNewEvent('custom_class')} />
-            <AddCard icon={<ClipboardCheck size={17} />} title="Exam" body="Date and exact time" onClick={() => openNewEvent('exam')} />
+            <AddCard icon={<ClipboardCheck size={17} />} title="Exam time" body="Reserve the actual sitting" onClick={() => openNewEvent('exam')} />
             <AddCard icon={<Clock3 size={17} />} title="Block time" body="Appointment or commitment" onClick={() => openNewEvent('blocked_time')} />
           </div>
         </section>

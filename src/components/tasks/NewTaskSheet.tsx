@@ -241,7 +241,11 @@ export function NewTaskSheet({ onClose, onCreated }: { onClose: () => void; onCr
               ))}
             </Select>
           </Field>
-          <Field label="Type" className="col-span-2 sm:col-span-1">
+          <Field
+            label="Work type"
+            className="col-span-2 sm:col-span-1"
+            hint="Midterm prep and Final prep are study work. Add the exam sitting from Plan."
+          >
             <Select
               value={draft.kind}
               onChange={(e) => {
