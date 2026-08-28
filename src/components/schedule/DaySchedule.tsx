@@ -298,12 +298,16 @@ function EventRow({ entry, now }: { entry: AgendaEntry; now: number }) {
             ? 'Reading break'
             : 'Holiday'
   const timeLine = event.allDay ? 'All day' : fmtTimeRange(entry.start, entry.end)
+  const exam = event.kind === 'exam'
 
   return (
     <li
       className={cx(
-        'flex items-start gap-2.5 px-1.5 py-2 rounded-xl border border-dashed border-line-2 transition-colors',
-        live && 'bg-tint',
+        'flex items-start gap-2.5 px-1.5 py-2 rounded-xl border border-dashed transition-colors',
+        exam
+          ? 'border-[color-mix(in_srgb,var(--c-critical)_45%,transparent)] bg-[color-mix(in_srgb,var(--c-critical)_8%,transparent)]'
+          : 'border-line-2',
+        !exam && live && 'bg-tint',
         past && 'opacity-65',
       )}
       title={`${kind} · ${event.title}${event.room ? ` · ${event.room}` : ''}`}
@@ -315,12 +319,13 @@ function EventRow({ entry, now }: { entry: AgendaEntry; now: number }) {
       ) : (
         <TimeCell at={entry.start} muted={past} />
       )}
-      <span className="w-[18px] shrink-0 grid place-items-center h-[17px] text-ink-2">
+      <span className={cx('w-[18px] shrink-0 grid place-items-center h-[17px]', exam ? 'text-[var(--c-critical-ink)]' : 'text-ink-2')}>
         <Icon size={14} aria-hidden />
       </span>
       <div className="min-w-0 flex-1">
-        <p className={cx('text-[13px] font-medium leading-[17px] truncate', past ? 'text-ink-3' : 'text-ink')}>
-          {event.title}
+        <p className={cx('flex items-center gap-1.5 min-w-0 text-[13px] font-medium leading-[17px]', past ? 'text-ink-3' : exam ? 'text-[var(--c-critical-ink)]' : 'text-ink')}>
+          <span className="truncate">{event.title}</span>
+          {exam && <span className="ui-chip ui-chip-critical shrink-0">Exam</span>}
         </p>
         <p className="text-[11.5px] text-ink-3 tnum leading-tight mt-0.5 truncate">
           <span className="sr-only">{timeLine} · </span>

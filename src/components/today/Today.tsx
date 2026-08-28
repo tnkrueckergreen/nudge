@@ -303,6 +303,7 @@ export function Today(props: TodayProps) {
               now={now}
               onOpenTask={onOpenTask}
               onOpenCourse={props.onOpenCourse}
+              onGoPlan={onGoPlan}
             />
 
             <div className="sm:hidden">
@@ -368,6 +369,7 @@ export function Today(props: TodayProps) {
               now={now}
               onOpenTask={onOpenTask}
               onOpenCourse={props.onOpenCourse}
+              onGoPlan={onGoPlan}
             />
 
             <DaySchedule

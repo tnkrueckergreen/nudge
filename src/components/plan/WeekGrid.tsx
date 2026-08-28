@@ -613,8 +613,10 @@ function PlannerEventChip({
       aria-label={`${kind}: ${event.title}, ${fmtTime(event.start)} to ${fmtTime(event.end)}. Edit planner item`}
       title={`${kind} · ${event.title}${event.room ? ` · ${event.room}` : ''}`}
       className={cx(
-        'absolute overflow-hidden text-left border border-dashed border-ink/30 bg-surface-2 text-ink',
-        'hover:bg-tint hover:border-ink/45 transition-colors',
+        'absolute overflow-hidden text-left border border-dashed text-ink transition-colors',
+        isExam
+          ? 'border-[color-mix(in_srgb,var(--c-critical)_55%,transparent)] bg-[color-mix(in_srgb,var(--c-critical)_10%,var(--c-surface-2))] text-[var(--c-critical-ink)] hover:bg-[color-mix(in_srgb,var(--c-critical)_15%,var(--c-surface-2))]'
+          : 'border-ink/30 bg-surface-2 hover:bg-tint hover:border-ink/45',
       )}
       style={{ ...itemFrame(left, width), top, height }}
     >

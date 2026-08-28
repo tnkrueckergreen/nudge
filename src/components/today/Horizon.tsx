@@ -1,10 +1,10 @@
 import { useMemo, type CSSProperties } from 'react'
-import { CalendarRange } from 'lucide-react'
+import { CalendarRange, ClipboardCheck } from 'lucide-react'
 import type { Derived } from '../../lib/derive'
-import type { Course } from '../../lib/types'
+import type { Course, PlannerEvent } from '../../lib/types'
 import { useStore } from '../../lib/store'
 import { daysBetween, fmtDay, fmtDayShort, fmtDuration, isSameDay } from '../../lib/date'
-import { CourseDot, Panel, SectionTitle, cx } from '../ui'
+import { Chip, CourseDot, Panel, SectionTitle, cx } from '../ui'
 
 export function WeekAhead({
   derived,
@@ -113,6 +113,7 @@ interface HorizonItem {
 
   note: string
   exam?: boolean
+  plannerEvent?: PlannerEvent
 }
 
 const FROM_DAYS = 7
@@ -120,9 +121,11 @@ const TO_DAYS = 21
 
 function useHorizon(derived: Derived, now: number): HorizonItem[] {
   const courses = useStore((s) => s.courses)
+  const plannerEvents = useStore((s) => s.plannerEvents)
 
   return useMemo(() => {
     const out: HorizonItem[] = []
+    const courseById = new Map(courses.map((c) => [c.id, c]))
 
     for (const r of derived.ranked) {
       const d = r.daysUntil
@@ -163,8 +166,26 @@ function useHorizon(derived: Derived, now: number): HorizonItem[] {
       }
     }
 
-    return out.sort((a, b) => a.at - b.at).slice(0, 4)
-  }, [derived.ranked, courses, now])
+    for (const event of plannerEvents) {
+      if (event.kind !== 'exam') continue
+      const at = +new Date(event.start)
+      const d = daysBetween(now, at)
+      if (d < 0 || d > TO_DAYS) continue
+      out.push({
+        id: `planner-exam:${event.id}`,
+        at,
+        title: event.title,
+        course: event.courseId ? courseById.get(event.courseId) : undefined,
+        note: `${fmtDay(at)}${event.room ? ` · ${event.room}` : ''}`,
+        exam: true,
+        plannerEvent: event,
+      })
+    }
+
+    return out
+      .sort((a, b) => Number(!!b.exam) - Number(!!a.exam) || a.at - b.at)
+      .slice(0, 4)
+  }, [derived.ranked, courses, plannerEvents, now])
 }
 
 export function Horizon({
@@ -172,6 +193,7 @@ export function Horizon({
   now,
   onOpenTask,
   onOpenCourse,
+  onGoPlan,
   className,
   style,
 }: {
@@ -179,6 +201,7 @@ export function Horizon({
   now: number
   onOpenTask: (id: string) => void
   onOpenCourse: (id: string) => void
+  onGoPlan: () => void
   style?: CSSProperties
 
   className?: string
@@ -198,16 +221,28 @@ export function Horizon({
             <li key={it.id}>
               <button
                 type="button"
-                onClick={() => (it.exam ? it.course && onOpenCourse(it.course.id) : onOpenTask(it.id))}
-                className="w-full flex items-center gap-2.5 px-1.5 py-2 rounded-xl text-left hover:bg-tint transition-colors"
+                onClick={() =>
+                  it.plannerEvent
+                    ? onGoPlan()
+                    : it.exam
+                      ? it.course && onOpenCourse(it.course.id)
+                      : onOpenTask(it.id)
+                }
+                className={cx(
+                  'w-full flex items-center gap-2.5 px-1.5 py-2 rounded-xl text-left hover:bg-tint transition-colors',
+                  it.exam && 'border border-[color-mix(in_srgb,var(--c-critical)_28%,transparent)] bg-[color-mix(in_srgb,var(--c-critical)_8%,transparent)]',
+                )}
               >
 
-                <span className="w-[18px] grid place-items-center shrink-0">
-                  <CourseDot course={it.course} />
+                <span className={cx('w-[18px] grid place-items-center shrink-0', it.exam && 'text-[var(--c-critical-ink)]')}>
+                  {it.exam ? <ClipboardCheck size={15} strokeWidth={2.2} /> : <CourseDot course={it.course} />}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[13px] font-medium text-ink leading-tight truncate">
-                    {it.title}
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <span className={cx('block text-[13px] font-medium leading-tight truncate', it.exam ? 'text-[var(--c-critical-ink)]' : 'text-ink')}>
+                      {it.title}
+                    </span>
+                    {it.exam && <Chip tone="critical" className="shrink-0">Exam</Chip>}
                   </span>
                   <span className="block text-[11.5px] text-ink-3 leading-tight mt-0.5 tnum">{it.note}</span>
                 </span>
