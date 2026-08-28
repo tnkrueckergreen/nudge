@@ -194,7 +194,7 @@ export function CourseSheet({
           </div>
 
           <p className="rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-[12px] leading-relaxed text-ink-2">
-            Add an in-person exam sitting from Plan → Customize planner. Keep prep, quizzes, and take-home exams as tasks.
+            Add an in-person exam from Plan → Customize planner. Keep prep and take-homes as tasks.
           </p>
 
           <ClassTimesEditor
