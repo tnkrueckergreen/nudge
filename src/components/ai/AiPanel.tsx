@@ -123,7 +123,6 @@ export function AiPanel({
   useEffect(() => {
     if (!open) {
       firedFor.current = null
-      // oxlint-disable-next-line react/set-state-in-effect -- clear transient panel state when its external open prop closes.
       setPending(null)
       return
     }

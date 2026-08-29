@@ -475,9 +475,6 @@ export const useStore = create<NudgeStore>()(
           const id = input.id ?? uid()
           const existingUnits = get().getUnits()
           const parentId = input.parentId && existingUnits[input.parentId] ? input.parentId : null
-          // A child belongs to its parent's course. Without this the new unit
-          // starts with none and the next recompute silently corrects it,
-          // leaving the stored graph disagreeing with itself in between.
           const courseId = input.courseId ?? (parentId ? existingUnits[parentId].courseId : null)
           const schedule = input.schedule ?? null
           const fromSlot =
@@ -599,9 +596,6 @@ export const useStore = create<NudgeStore>()(
           const running = get().timer
           if (running && running.courseId === id) get().endSitting()
           mutate('Deleted course', (s) => {
-            // A block keeps the course it was made under, so moving a task to
-            // another course splits the two. Blocks that survive on their own
-            // course still have to let go of the tasks going away with this one.
             const goneTaskIds = new Set(s.assignments.filter((a) => a.courseId === id).map((a) => a.id))
             const goneBlockIds = new Set(s.blocks.filter((b) => b.courseId === id).map((b) => b.id))
             return {
@@ -704,8 +698,6 @@ export const useStore = create<NudgeStore>()(
             blocks: s.blocks.map((b) =>
               b.assignmentId === id ? { ...b, assignmentId: null, subtaskId: null } : b,
             ),
-            // Time spent still counts towards the course and the streak; it
-            // just stops naming a task that is no longer there.
             sessions: s.sessions.map((x) => (x.assignmentId === id ? { ...x, assignmentId: null } : x)),
             todayList: s.todayList.filter((t) => t.assignmentId !== id),
           }))
@@ -873,8 +865,6 @@ export const useStore = create<NudgeStore>()(
         removeBlock(id) {
           mutate('Deleted block', (s) => ({
             blocks: s.blocks.filter((b) => b.id !== id),
-            // Time really spent is kept; it just stops pointing at a block that
-            // no longer exists. The automatic top-up goes with the block.
             sessions: s.sessions
               .filter((x) => !(x.blockId === id && isAutoLog(x)))
               .map((x) => (x.blockId === id ? { ...x, blockId: null } : x)),
@@ -1020,9 +1010,6 @@ export const useStore = create<NudgeStore>()(
           if (!t) return null
           const r = recover(t, Date.now(), readHeartbeat())
           const recovered = withRecovery(get(), r)
-          // Banking a session moves a task to "doing", so the unit graph has to
-          // move with it. Leaving it behind meant the next action that only
-          // touched, say, the today list would sync the stale statuses back.
           const at = new Date().toISOString()
           const units = stateToUnits(recovered as AppState)
           set({
@@ -1280,9 +1267,6 @@ export const useStore = create<NudgeStore>()(
             isSample: false,
           }
           const at = new Date().toISOString()
-          // Backups no longer carry `units`, but older ones do — it is read for
-          // what it is worth and rebuilt either way. Restoring is not a
-          // transition, so completions are stamped without owing any top-ups.
           const imported = stampCompletions(stateToUnits({ ...nextState, units: next.units ?? {} }), at)
           set({
             ...nextState,
@@ -1342,9 +1326,6 @@ export const useStore = create<NudgeStore>()(
         next.settings = { ...DEFAULT_SETTINGS, ...next.settings }
         next.plannerEvents ??= []
         next.scheduleOverrides ??= []
-        // Rehydrating is not a transition, so no top-ups are owed. What is owed
-        // is a completion time for anything the graph works out is finished —
-        // otherwise it is done with no date and shows up in neither list.
         next.units = stampCompletions(stateToUnits(next), at)
         next.assignments = syncAssignmentsFromUnits(next.assignments, next.units, at)
         next.blocks = syncBlocksFromUnits(next.blocks, next.units)
@@ -1356,8 +1337,6 @@ export const useStore = create<NudgeStore>()(
         recovered.blocks = syncBlocksFromUnits(recovered.blocks, recovered.units)
         return recovered
       },
-      // `units` is derived from the rows below it and rebuilt on load, so it is
-      // deliberately not stored: keeping it doubled the payload and every write.
       partialize: (s) => ({
         version: s.version,
         courses: s.courses,
@@ -1375,23 +1354,9 @@ export const useStore = create<NudgeStore>()(
   ),
 )
 
-/**
- * Nudge keeps everything in one browser, and nothing stopped two tabs from
- * overwriting each other: each held its own copy and the last one to save won,
- * silently discarding whatever the other had done.
- *
- * The `storage` event only fires in the *other* tabs, so a tab that has just
- * saved never reacts to itself. A tab with a timer running is left alone —
- * reloading it mid-session would disturb the sitting, and it will save its own
- * work when the timer ends.
- */
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
   window.addEventListener('storage', (e) => {
     if (e.key !== STORAGE_KEY || e.newValue == null) return
-    // The sitting on the clock belongs to the tab running it, so it is carried
-    // across the reload rather than being replaced by the other tab's idea of
-    // it — and the recovery that reloading queues up is dropped, so the other
-    // tab does not announce a session this one is in the middle of.
     const running = useStore.getState().timer
     void Promise.resolve(useStore.persist.rehydrate()).then(() => {
       if (!running) return

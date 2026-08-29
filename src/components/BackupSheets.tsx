@@ -113,7 +113,6 @@ export function ImportSheet({
 
   useEffect(() => {
     if (!open) {
-      // oxlint-disable-next-line react/set-state-in-effect -- clear transient dialog state when its external open prop closes.
       setPasted('')
       setBusy(false)
     }

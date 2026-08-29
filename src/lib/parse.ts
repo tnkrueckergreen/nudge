@@ -30,11 +30,6 @@ const phrasePattern = (phrases: string[]) => {
   return new RegExp(`(?<![A-Za-z0-9])(?:${alternatives.join('|')})(?![A-Za-z0-9])`, 'i')
 }
 
-/**
- * These are intentionally conversational rather than just formal labels.
- * Quick Add should understand the shorthand a student is likely to type,
- * while leaving an unqualified "exam" as a generic assignment.
- */
 const KIND_WORDS: [RegExp, TaskKind][] = [
   [
     phrasePattern([

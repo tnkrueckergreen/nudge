@@ -57,7 +57,6 @@ export function AssignmentSheet({
 
   useEffect(() => {
     if (a.subtasks.length > 3) {
-      // oxlint-disable-next-line react/set-state-in-effect -- collapse the list when external task data grows.
       setShowAll(false)
     }
   }, [a.subtasks.length])

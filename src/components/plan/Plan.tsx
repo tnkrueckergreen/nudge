@@ -208,7 +208,6 @@ export function Plan({
 
   useEffect(() => {
     if (!focusBlock) return
-    // oxlint-disable-next-line react/set-state-in-effect -- synchronize selection from an external focus request.
     setSelected(focusBlock.id)
     onFocusHandled?.()
   }, [focusBlock, onFocusHandled])
