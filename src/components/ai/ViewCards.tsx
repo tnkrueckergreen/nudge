@@ -112,7 +112,7 @@ function TimelineRow({ item, now, onOpen }: { item: TimelineItem; now: number; o
   const body = (
     <>
       <span className="w-[52px] shrink-0 text-right text-[11px] tnum text-ink-3">
-        {fmtTime(item.at, { compact: true })}
+        {item.allDay ? 'All day' : fmtTime(item.at, { compact: true })}
       </span>
       <CourseDot course={item.course} />
       <span
@@ -134,6 +134,11 @@ function TimelineRow({ item, now, onOpen }: { item: TimelineItem; now: number; o
           <PlaceLine place={parsePlace(item.room)} size="xs" className="shrink min-w-0 hidden sm:inline-flex" />
           {item.course && hasMultipleMeetingKinds(item.course) && <KindBadge kind={item.meetingKind} size="xs" className="shrink-0" />}
         </>
+      )}
+      {item.kind === 'event' && (
+        <Chip tone={item.event?.kind === 'exam' ? 'critical' : 'quiet'} className="shrink-0">
+          {item.event?.kind === 'exam' ? 'exam' : item.allDay ? 'calendar' : 'fixed'}
+        </Chip>
       )}
       {item.kind === 'block' && minutes > 0 && (
         <span className="shrink-0 text-[11px] tnum text-ink-3">{fmtDuration(minutes)}</span>
@@ -159,11 +164,22 @@ function AgendaCard({ view, now }: { view: Extract<View, { kind: 'agenda' }>; no
   const courses = useStore((s) => s.courses)
   const assignments = useStore((s) => s.assignments)
   const blocks = useStore((s) => s.blocks)
+  const plannerEvents = useStore((s) => s.plannerEvents)
+  const scheduleOverrides = useStore((s) => s.scheduleOverrides)
   const host = useCommandHost()
 
   const { days, hiddenDays, overdue, counts } = useMemo(() => {
     const to = +addDays(startOfDay(now), view.days)
-    const items = buildTimeline({ from: now, to, courses, assignments, blocks, courseId: view.courseId })
+    const items = buildTimeline({
+      from: now,
+      to,
+      courses,
+      assignments,
+      blocks,
+      plannerEvents,
+      scheduleOverrides,
+      courseId: view.courseId,
+    })
 
     const late = assignments
       .filter(
@@ -191,9 +207,10 @@ function AgendaCard({ view, now }: { view: Extract<View, { kind: 'agenda' }>; no
       counts: {
         deadlines: items.filter((i) => i.kind === 'deadline').length,
         blocks: items.filter((i) => i.kind === 'block').length,
+        fixed: items.filter((i) => i.kind === 'event').length,
       },
     }
-  }, [now, view.days, view.courseId, courses, assignments, blocks])
+  }, [now, view.days, view.courseId, courses, assignments, blocks, plannerEvents, scheduleOverrides])
 
   const courseById = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses])
 
@@ -204,7 +221,7 @@ function AgendaCard({ view, now }: { view: Extract<View, { kind: 'agenda' }>; no
       title={view.title}
       right={
         <span className="text-[11px] tnum text-ink-3">
-          {counts.deadlines} due · {counts.blocks} booked
+          {counts.deadlines} due · {counts.blocks} booked{counts.fixed ? ` · ${counts.fixed} fixed` : ''}
         </span>
       }
     >
@@ -265,6 +282,8 @@ const HOUR_PX = 34
 
 function TimetableCard({ view, now }: { view: Extract<View, { kind: 'timetable' }>; now: number }) {
   const courses = useStore((s) => s.courses)
+  const plannerEvents = useStore((s) => s.plannerEvents)
+  const scheduleOverrides = useStore((s) => s.scheduleOverrides)
   const tt = useMemo(() => buildTimetable(courses, view.courseId), [courses, view.courseId])
   const course = view.courseId ? courses.find((c) => c.id === view.courseId) : undefined
 
@@ -275,10 +294,12 @@ function TimetableCard({ view, now }: { view: Extract<View, { kind: 'timetable' 
       courses,
       assignments: [],
       blocks: [],
+      plannerEvents,
+      scheduleOverrides,
       courseId: view.courseId,
     })
     return items.find((i) => i.kind === 'class')
-  }, [courses, now, view.courseId])
+  }, [courses, plannerEvents, scheduleOverrides, now, view.courseId])
 
   if (!tt.count) {
     return (
@@ -789,6 +810,8 @@ function DayCard({ view, ai }: { view: Extract<View, { kind: 'day' }>; ai: AiCon
   const courses = useStore((s) => s.courses)
   const assignments = useStore((s) => s.assignments)
   const blocks = useStore((s) => s.blocks)
+  const plannerEvents = useStore((s) => s.plannerEvents)
+  const scheduleOverrides = useStore((s) => s.scheduleOverrides)
   const capacity = useStore((s) => s.settings.dailyCapacityMin)
   const host = useCommandHost()
   const now = ai.now
@@ -799,12 +822,12 @@ function DayCard({ view, ai }: { view: Extract<View, { kind: 'day' }>; ai: AiCon
   const { items, plannedMin } = useMemo(() => {
 
     const end = +addDays(fromDayKey(view.day), 1)
-    const list = buildTimeline({ from: at, to: end, courses, assignments, blocks })
+    const list = buildTimeline({ from: at, to: end, courses, assignments, blocks, plannerEvents, scheduleOverrides })
     const planned = list
       .filter((i) => i.kind === 'block')
       .reduce((s, i) => s + (i.endAt ? (i.endAt - i.at) / 60_000 : 0), 0)
     return { items: list, plannedMin: Math.round(planned) }
-  }, [at, view.day, courses, assignments, blocks])
+  }, [at, view.day, courses, assignments, blocks, plannerEvents, scheduleOverrides])
 
   const studied = isToday ? Math.round(ai.derived.studiedTodayMin) : 0
 

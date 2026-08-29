@@ -44,8 +44,8 @@ const EVENT_COPY: Record<PlannerEventKind, { title: string; body: string; placeh
     placeholder: 'Guest lecture',
   },
   exam: {
-    title: 'Exam time',
-    body: 'Note: add exam prep and take-homes as tasks separately.',
+    title: 'Exam',
+    body: 'This blocks the exam in your schedule, so Nudge can plan study time around it. Track preparation as a task.',
     placeholder: 'ECON 230 midterm',
   },
   blocked_time: {
@@ -120,13 +120,13 @@ const eventDateLabel = (event: PlannerEvent) => {
   return first === last ? first : `${first} – ${last}`
 }
 
-export function CustomizePlannerSheet({
+export function ScheduleSheet({
   initialDate,
   initial,
   onClose,
 }: {
   initialDate: Date
-  initial?: { type: 'event'; id: string } | { type: 'schedule'; id?: string }
+  initial?: { type: 'exam' } | { type: 'event'; id: string } | { type: 'schedule'; id?: string }
   onClose: () => void
 }) {
   const store = useStore()
@@ -144,12 +144,14 @@ export function CustomizePlannerSheet({
   const [screen, setScreen] = useState<Screen>(() =>
     initialEvent
       ? { page: 'event', eventId: initialEvent.id, kind: initialEvent.kind }
+      : initial?.type === 'exam'
+        ? { page: 'event', kind: 'exam' }
       : initial?.type === 'schedule'
         ? { page: 'schedule', overrideId: initialOverride?.id }
         : { page: 'home' },
   )
   const [eventDraft, setEventDraft] = useState<EventDraft>(() =>
-    initialEventDraft(initialEvent?.kind ?? 'custom_class', defaultDate, initialEvent),
+    initialEventDraft(initialEvent?.kind ?? (initial?.type === 'exam' ? 'exam' : 'custom_class'), defaultDate, initialEvent),
   )
   const [scheduleDraft, setScheduleDraft] = useState<ScheduleDraft>(() =>
     initialScheduleDraft(defaultDate, initialOverride),
@@ -211,7 +213,7 @@ export function CustomizePlannerSheet({
     }
     if (activeEvent) {
       store.updatePlannerEvent(activeEvent.id, input)
-      toast('Planner item updated')
+      toast('Schedule item updated')
     } else {
       store.addPlannerEvent(input)
       toast(`${EVENT_COPY[eventDraft.kind].title} added`, { action: { label: 'Undo', run: () => store.undo() } })
@@ -244,10 +246,10 @@ export function CustomizePlannerSheet({
               <Button
                 size="sm"
                 variant="danger"
-                aria-label="Delete planner item"
+                aria-label="Delete schedule item"
                 onClick={() => {
                   store.removePlannerEvent(activeEvent.id)
-                  toast('Planner item deleted', { action: { label: 'Undo', run: () => store.undo() } })
+                  toast('Schedule item deleted', { action: { label: 'Undo', run: () => store.undo() } })
                   setScreen({ page: 'home' })
                 }}
               >
@@ -259,7 +261,7 @@ export function CustomizePlannerSheet({
             </Button>
             <div className="flex-1" />
             <Button size="sm" variant="primary" onClick={saveEvent} disabled={!eventDraft.title.trim() || !timeValid}>
-              {activeEvent ? 'Save changes' : 'Add to planner'}
+              {activeEvent ? 'Save changes' : 'Add to schedule'}
             </Button>
           </div>
         }
@@ -409,22 +411,28 @@ export function CustomizePlannerSheet({
     <Sheet
       open
       onClose={onClose}
-      title="Customize planner"
-      description="Add exams, breaks, and other exceptions to your schedule."
+      title="Schedule"
+      description="Classes, exams, and commitments shape every plan Nudge makes."
       size="lg"
     >
       <div className="flex flex-col gap-5">
         <section>
-          <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.07em] text-ink-3">Add an exception</p>
+          <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.07em] text-ink-3">Academic schedule</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <AddCard icon={<ClipboardCheck size={17} />} title="Exam" body="A high-stakes date and time" onClick={() => openNewEvent('exam')} />
+            <AddCard icon={<GraduationCap size={17} />} title="One-time class" body="Guest lecture, make-up, or review" onClick={() => openNewEvent('custom_class')} />
+          </div>
+        </section>
+
+        <section>
+          <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.07em] text-ink-3">Commitments</p>
           <div className="grid gap-2 sm:grid-cols-3">
-            <AddCard icon={<GraduationCap size={17} />} title="One-time class" body="Guest lecture or make-up" onClick={() => openNewEvent('custom_class')} />
-            <AddCard icon={<ClipboardCheck size={17} />} title="Exam time" body="How fun!" onClick={() => openNewEvent('exam')} />
             <AddCard icon={<Clock3 size={17} />} title="Block time" body="Appointment or commitment" onClick={() => openNewEvent('blocked_time')} />
           </div>
         </section>
 
         <section>
-          <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.07em] text-ink-3">Change the calendar</p>
+          <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.07em] text-ink-3">Class-calendar changes</p>
           <div className="grid gap-2 sm:grid-cols-3">
             <AddCard icon={<BookOpen size={17} />} title="Reading break" body="A range of no-class days" onClick={() => openNewEvent('reading_break')} />
             <AddCard icon={<CalendarOff size={17} />} title="Holiday" body="Keep a day clear" onClick={() => openNewEvent('holiday')} />
@@ -434,7 +442,7 @@ export function CustomizePlannerSheet({
 
         {(sortedEvents.length > 0 || sortedOverrides.length > 0) && (
           <section className="border-t border-line pt-4">
-            <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.07em] text-ink-3">Planner changes</p>
+            <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.07em] text-ink-3">Your schedule</p>
             <div className="flex flex-col gap-1">
               {sortedEvents.map((event) => (
                 <ChangeRow

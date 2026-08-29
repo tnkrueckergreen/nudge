@@ -4,7 +4,7 @@ import { uid } from '../id'
 import { MIN, dayKey } from '../date'
 import { defaultEffort } from '../priority'
 import { placeSteps, releaseSteps, repoint, replaceTaskPlan } from '../steps'
-import type { Assignment, AppState, Course, Session, StudyBlock } from '../types'
+import type { Assignment, AppState, Course, PlannerEvent, Session, StudyBlock } from '../types'
 import { revalidate, summarize, type Proposal, type ValidationState } from './validate'
 
 export interface ApplyResult {
@@ -18,6 +18,7 @@ export interface Created {
   proposalId: string
   blockId?: string
   taskId?: string
+  scheduleItemId?: string
 }
 
 const iso = (ms: number) => new Date(ms).toISOString()
@@ -104,6 +105,27 @@ export function foldProposal(state: AppState, p: Proposal, nowIso: string): Part
       }
       return { blocks: [...state.blocks, b] }
     }
+
+    case 'create_schedule_item': {
+      const event: PlannerEvent = {
+        id: uid(),
+        title: p.title,
+        kind: p.kind,
+        start: iso(p.startMs),
+        end: iso(p.endMs),
+        allDay: p.allDay,
+        courseId: p.courseId,
+        room: p.room,
+        createdAt: nowIso,
+      }
+      return { plannerEvents: [...state.plannerEvents, event] }
+    }
+
+    case 'update_schedule_item':
+      return { plannerEvents: state.plannerEvents.map((event) => (event.id === p.eventId ? p.after : event)) }
+
+    case 'remove_schedule_item':
+      return { plannerEvents: state.plannerEvents.filter((event) => event.id !== p.eventId) }
 
     case 'move_block':
       return {
@@ -355,11 +377,17 @@ export function foldProposal(state: AppState, p: Proposal, nowIso: string): Part
 function labelFor(proposals: Proposal[]): string {
   if (proposals.length === 1) return summarize(proposals[0])
   const blocks = proposals.filter((p) => p.type === 'schedule_block' || p.type === 'study_session').length
+  const scheduleItems = proposals.filter((p) => p.type === 'create_schedule_item').length
+  const scheduleEdits = proposals.filter((p) => p.type === 'update_schedule_item').length
+  const scheduleRemovals = proposals.filter((p) => p.type === 'remove_schedule_item').length
   const moves = proposals.filter((p) => p.type === 'move_block').length
   const tasks = proposals.filter((p) => p.type === 'create_task').length
   const bits: string[] = []
   if (tasks) bits.push(`${tasks} task${tasks === 1 ? '' : 's'} added`)
   if (blocks) bits.push(`${blocks} block${blocks === 1 ? '' : 's'} scheduled`)
+  if (scheduleItems) bits.push(`${scheduleItems} schedule item${scheduleItems === 1 ? '' : 's'} added`)
+  if (scheduleEdits) bits.push(`${scheduleEdits} schedule item${scheduleEdits === 1 ? '' : 's'} updated`)
+  if (scheduleRemovals) bits.push(`${scheduleRemovals} schedule item${scheduleRemovals === 1 ? '' : 's'} removed`)
   if (moves) bits.push(`${moves} moved`)
   const done = proposals.filter((p) => p.type === 'complete_task').length
   if (done) bits.push(`${done} marked done`)
@@ -388,7 +416,8 @@ export function applyProposals(proposals: Proposal[], vstate: ValidationState): 
 
       const blockId = addedId(before.blocks, working.blocks)
       const taskId = addedId(before.assignments, working.assignments)
-      if (blockId || taskId) created.push({ proposalId: p.id, blockId, taskId })
+      const scheduleItemId = addedId(before.plannerEvents, working.plannerEvents)
+      if (blockId || taskId || scheduleItemId) created.push({ proposalId: p.id, blockId, taskId, scheduleItemId })
     }
     const units = reconcileUnitClosures(
       applyCompositeStatus(stateToUnits(working)),
@@ -401,6 +430,8 @@ export function applyProposals(proposals: Proposal[], vstate: ValidationState): 
       blocks: syncBlocksFromUnits(working.blocks, units),
       todayList: working.todayList,
       courses: working.courses,
+      plannerEvents: working.plannerEvents,
+      scheduleOverrides: working.scheduleOverrides,
       settings: working.settings,
       sessions: mergeProjectedSessions(rel.sessions, working.sessions, s.units ?? {}, units),
       units,
@@ -422,6 +453,8 @@ export function currentValidationState(now: number, nudges?: { id: string; text:
     assignments: s.assignments,
     courses: s.courses,
     blocks: s.blocks,
+    plannerEvents: s.plannerEvents,
+    scheduleOverrides: s.scheduleOverrides,
     nudges,
     todayOrder: s.todayList.map((t) => t.assignmentId),
     now,

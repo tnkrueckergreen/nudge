@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarPlus, CalendarRange, ChevronLeft, ChevronRight, GraduationCap, Info, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { CalendarDays, CalendarPlus, CalendarRange, ChevronLeft, ChevronRight, ClipboardCheck, GraduationCap, Info, Sparkles } from 'lucide-react'
 import { useStore } from '../../lib/store'
 import type { Derived } from '../../lib/derive'
 import { addDays, fmtDay, fmtDayShort, fmtDuration, fmtTime, startOfDay, startOfWeek } from '../../lib/date'
@@ -7,7 +7,7 @@ import { autoSchedule } from '../../lib/autoSchedule'
 import { washOf } from '../../lib/theme'
 import { WeekGrid } from './WeekGrid'
 import { BlockSheet } from './BlockSheet'
-import { CustomizePlannerSheet } from './CustomizePlannerSheet'
+import { ScheduleSheet } from './ScheduleSheet'
 import { Button, Card, CourseDot, EmptyState, IconButton, cx, useToast } from '../ui'
 import { useIsMobile } from '../../lib/hooks'
 import type { Surface } from '../../lib/ai/prompt'
@@ -59,8 +59,8 @@ export function Plan({
 
   const [armed, setArmed] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
-  const [customize, setCustomize] = useState<
-    { type: 'home' } | { type: 'event'; id: string } | { type: 'schedule'; id?: string } | null
+  const [schedule, setSchedule] = useState<
+    { type: 'home' } | { type: 'exam' } | { type: 'event'; id: string } | { type: 'schedule'; id?: string } | null
   >(null)
 
   const weekStart = useMemo(() => addDays(startOfWeek(now), weekOffset * 7), [now, weekOffset])
@@ -100,6 +100,16 @@ export function Plan({
     },
 
     [blocks, store, undoable],
+  )
+
+  const handleMovePlannerEvent = useCallback(
+    (id: string, startMs: number, endMs: number) => {
+      store.updatePlannerEvent(id, {
+        start: new Date(startMs).toISOString(),
+        end: new Date(endMs).toISOString(),
+      })
+    },
+    [store],
   )
 
   const handleCreate = useCallback(
@@ -238,20 +248,24 @@ export function Plan({
               action={
                 <>
                   <Button variant="primary" onClick={onAddCourse}>Add your first course</Button>
-                  <Button onClick={() => setCustomize({ type: 'home' })}>
-                    <SlidersHorizontal size={14} />
-                    Customize
+                  <Button variant="primary" onClick={() => setSchedule({ type: 'exam' })}>
+                    <ClipboardCheck size={14} />
+                    Add an exam
+                  </Button>
+                  <Button onClick={() => setSchedule({ type: 'home' })}>
+                    <CalendarDays size={14} />
+                    Schedule
                   </Button>
                 </>
               }
             />
           </Card>
         </div>
-        {customize && (
-          <CustomizePlannerSheet
+        {schedule && (
+          <ScheduleSheet
             initialDate={weekOffset === 0 ? new Date(now) : weekStart}
-            initial={customize.type === 'home' ? undefined : customize}
-            onClose={() => setCustomize(null)}
+            initial={schedule.type === 'home' ? undefined : schedule}
+            onClose={() => setSchedule(null)}
           />
         )}
       </>
@@ -296,9 +310,13 @@ export function Plan({
             <GraduationCap size={15} />
             <span className="hidden lg:inline">Classes</span>
           </Button>
-          <Button size="sm" onClick={() => setCustomize({ type: 'home' })}>
-            <SlidersHorizontal size={14} />
-            Customize
+          <Button size="sm" onClick={() => setSchedule({ type: 'exam' })} title="Add an exam to your schedule">
+            <ClipboardCheck size={14} />
+            <span className="hidden lg:inline">Exam</span>
+          </Button>
+          <Button size="sm" onClick={() => setSchedule({ type: 'home' })} title="Manage classes, exams, and commitments">
+            <CalendarDays size={14} />
+            <span className="hidden lg:inline">Schedule</span>
           </Button>
           <Button
             size="sm"
@@ -387,10 +405,11 @@ export function Plan({
           showClasses={showClasses}
           selectedId={selected}
           onMoveBlock={handleMove}
+           onMovePlannerEvent={handleMovePlannerEvent}
           onCreate={handleCreate}
           onSelect={setSelected}
           onSelectCourse={onEditCourse}
-          onSelectPlannerEvent={(id) => setCustomize({ type: 'event', id })}
+          onSelectPlannerEvent={(id) => setSchedule({ type: 'event', id })}
           onNudgeBlock={handleNudge}
           onDeleteBlock={handleDelete}
           onToggleDone={(id) => store.toggleBlockDone(id)}
@@ -425,11 +444,11 @@ export function Plan({
           }}
         />
       )}
-      {customize && (
-        <CustomizePlannerSheet
+      {schedule && (
+        <ScheduleSheet
           initialDate={weekOffset === 0 ? new Date(now) : weekStart}
-          initial={customize.type === 'home' ? undefined : customize}
-          onClose={() => setCustomize(null)}
+          initial={schedule.type === 'home' ? undefined : schedule}
+          onClose={() => setSchedule(null)}
         />
       )}
     </div>

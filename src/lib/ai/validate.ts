@@ -1,11 +1,13 @@
-import type { Assignment, Course, DayKey, Meeting, MeetingKind, Settings, StudyBlock, Subtask, TaskKind } from '../types'
+import type { Assignment, Course, DayKey, Meeting, MeetingKind, PlannerEvent, PlannerEventKind, ScheduleOverride, Settings, StudyBlock, Subtask, TaskKind } from '../types'
 import { MIN, atMinutes, clamp, dayKey, fmtDuration, fromDayKey, snap } from '../date'
 import { uid } from '../id'
+import { classesOn, plannerEventOnDay } from '../meetings'
 import {
   COMMANDS,
   MEETING_KINDS,
   NO_COURSE,
   SEGMENT_KINDS,
+  SCHEDULE_ITEM_KINDS,
   PALETTES,
   THEMES,
   TONES,
@@ -23,6 +25,9 @@ import {
 
 export type ActionType =
   | 'create_task'
+  | 'create_schedule_item'
+  | 'update_schedule_item'
+  | 'remove_schedule_item'
   | 'update_task'
   | 'move_deadline'
   | 'split_task'
@@ -51,6 +56,9 @@ export type ActionType =
 
 const GROUP_TYPE: Partial<Record<ActionGroup, ActionType>> = {
   create_tasks: 'create_task',
+  create_schedule_items: 'create_schedule_item',
+  update_schedule_items: 'update_schedule_item',
+  remove_schedule_items: 'remove_schedule_item',
   update_tasks: 'update_task',
   breakdowns: 'split_task',
   schedule_blocks: 'schedule_block',
@@ -181,6 +189,32 @@ export interface ScheduleBlockProposal extends ProposalBase {
   title: string
   startMs: number
   endMs: number
+}
+
+export interface CreateScheduleItemProposal extends ProposalBase {
+  type: 'create_schedule_item'
+  title: string
+  kind: PlannerEventKind
+  courseId: string | null
+  courseCode: string | null
+  startMs: number
+  endMs: number
+  allDay: boolean
+  room?: string
+}
+
+export interface UpdateScheduleItemProposal extends ProposalBase {
+  type: 'update_schedule_item'
+  eventId: string
+  before: PlannerEvent
+  after: PlannerEvent
+  changes: { field: string; from: string; to: string }[]
+}
+
+export interface RemoveScheduleItemProposal extends ProposalBase {
+  type: 'remove_schedule_item'
+  eventId: string
+  before: PlannerEvent
 }
 
 export interface MoveBlockProposal extends ProposalBase {
@@ -372,6 +406,9 @@ export type Proposal =
   | UpdateTaskProposal
   | MoveDeadlineProposal
   | SplitTaskProposal
+  | CreateScheduleItemProposal
+  | UpdateScheduleItemProposal
+  | RemoveScheduleItemProposal
   | ScheduleBlockProposal
   | MoveBlockProposal
   | RemoveBlockProposal
@@ -410,6 +447,8 @@ export interface ValidationState {
   assignments: Assignment[]
   courses: Course[]
   blocks: StudyBlock[]
+  plannerEvents: PlannerEvent[]
+  scheduleOverrides: ScheduleOverride[]
 
   nudges?: { id: string; text: string }[]
   now: number
@@ -449,6 +488,9 @@ const liveAssignment = (id: unknown, st: ValidationState) =>
 const liveBlock = (id: unknown, st: ValidationState) =>
   typeof id === 'string' ? (st.blocks.find((b) => b.id === id) ?? null) : null
 
+const liveScheduleItem = (id: unknown, st: ValidationState) =>
+  typeof id === 'string' ? (st.plannerEvents.find((event) => event.id === id) ?? null) : null
+
 function resolveCourse(code: unknown, st: ValidationState): Course | null {
   const raw = typeof code === 'string' ? code.trim().toUpperCase().replace(/[\s\-_]+/g, '') : ''
   if (!raw || raw === NO_COURSE) return null
@@ -484,18 +526,34 @@ const plausible = (ms: number, now: number) => ms > now - PLAUSIBLE_BACK && ms <
 const courseName = (id: string | null, st: ValidationState): string =>
   (id ? st.courses.find((c) => c.id === id)?.code : undefined) ?? '—'
 
-function overlapWarnings(startMs: number, endMs: number, st: ValidationState, ignoreBlockId?: string): string[] {
+function overlapWarnings(
+  startMs: number,
+  endMs: number,
+  st: ValidationState,
+  ignoreBlockId?: string,
+  ignoreScheduleItemId?: string,
+): string[] {
   const out: string[] = []
   const day = new Date(startMs)
 
-  for (const c of st.courses) {
-    if (c.archived) continue
-    for (const m of c.meetings) {
-      if (m.day !== day.getDay()) continue
-      const ms = +atMinutes(day, m.start)
-      const me = +atMinutes(day, m.end)
-      if (startMs < me && ms < endMs) out.push(`Overlaps ${c.code} ${m.kind}`)
+  for (const cls of classesOn(st.courses, day, {
+    plannerEvents: st.plannerEvents,
+    scheduleOverrides: st.scheduleOverrides,
+  })) {
+    if (startMs < cls.end && cls.start < endMs) out.push(`Overlaps ${cls.course.code} ${cls.meeting.kind}`)
+  }
+
+  for (const event of st.plannerEvents) {
+    if (event.id === ignoreScheduleItemId) continue
+    if (!plannerEventOnDay(event, day)) continue
+    if (event.allDay) {
+      out.push(`Falls on ${event.title}`)
+      continue
     }
+    const eventStart = +new Date(event.start)
+    const eventEnd = +new Date(event.end)
+    if (startMs < eventEnd && eventStart < endMs)
+      out.push(`Overlaps ${event.kind === 'exam' ? 'exam' : 'commitment'}: ${event.title}`)
   }
 
   for (const b of st.blocks) {
@@ -510,6 +568,22 @@ function overlapWarnings(startMs: number, endMs: number, st: ValidationState, ig
 
   return out
 }
+
+const scheduleWhen = (event: Pick<PlannerEvent, 'start' | 'end' | 'allDay'>) => {
+  const start = +new Date(event.start)
+  const end = +new Date(event.end)
+  if (event.allDay) {
+    const last = dayKey(end - 1)
+    return dayKey(start) === last ? `${dayKey(start)} all day` : `${dayKey(start)} through ${last}`
+  }
+  const time = (ms: number) => {
+    const d = new Date(ms)
+    return `${`${d.getHours()}`.padStart(2, '0')}:${`${d.getMinutes()}`.padStart(2, '0')}`
+  }
+  return `${dayKey(start)} ${time(start)}–${time(end)}`
+}
+
+const scheduleKindLabel = (kind: PlannerEventKind) => kind.replace(/_/g, ' ')
 
 type Outcome = { ok: true; proposal: Proposal; also?: Proposal[] } | { ok: false; why: string }
 
@@ -743,6 +817,125 @@ function validateItem(group: ActionGroup, raw: RawItem, st: ValidationState): Ou
         warnings.push(`Replans the ${replanned} block${replanned === 1 ? '' : 's'} already set aside for it`)
 
       return { ok: true, proposal: { ...base, type, taskId: before.id, before, steps, warnings } }
+    }
+
+    case 'create_schedule_item': {
+      const title = text(raw.title, 120)
+      if (!title) return { ok: false, why: 'a schedule item with no title' }
+      const date = parseDate(raw.date)
+      if (!date) return { ok: false, why: `“${title}” had no usable date` }
+      const kindRaw = typeof raw.kind === 'string' ? raw.kind : ''
+      if (!(SCHEDULE_ITEM_KINDS as readonly string[]).includes(kindRaw))
+        return { ok: false, why: `“${title}” had no usable schedule kind` }
+
+      const kind = kindRaw as PlannerEventKind
+      const allDay = kind === 'reading_break' || kind === 'holiday'
+      const endDate = allDay ? parseDate(raw.endDate) ?? date : date
+      if (+endDate < +date) return { ok: false, why: `“${title}” ends before it starts` }
+
+      const startMin = allDay ? 0 : parseTime(raw.time)
+      if (startMin == null) return { ok: false, why: `“${title}” needs a start time` }
+      const durationMin = allDay ? 0 : snap(parseNum(raw.durationMin, 15, 720) ?? 0, 15)
+      if (!allDay && durationMin < 15) return { ok: false, why: `“${title}” needs a duration` }
+
+      const startMs = instant(date, startMin, 0)
+      const endMs = allDay ? +atMinutes(endDate, 24 * 60) : startMs + durationMin * MIN
+      if (!plausible(startMs, st.now)) return { ok: false, why: `“${title}” was dated outside this school year` }
+
+      const course = resolveCourse(raw.courseCode, st)
+      const warnings = overlapWarnings(startMs, endMs, st)
+      if (startMs < st.now) warnings.push('This time has already passed')
+      if (typeof raw.courseCode === 'string' && raw.courseCode && raw.courseCode !== NO_COURSE && !course)
+        warnings.push(`No course called ${raw.courseCode}. This item will not be tied to a course.`)
+      if (st.plannerEvents.some((event) => event.kind === kind && event.title.toLowerCase() === title.toLowerCase() && Math.abs(+new Date(event.start) - startMs) < 2 * 86_400_000))
+        warnings.push('You already have a schedule item with this name around then')
+
+      return {
+        ok: true,
+        proposal: {
+          ...base,
+          type,
+          title,
+          kind,
+          courseId: course?.id ?? null,
+          courseCode: course?.code ?? null,
+          startMs,
+          endMs,
+          allDay,
+          room: text(raw.room, 80) ?? undefined,
+          warnings,
+        },
+      }
+    }
+
+    case 'update_schedule_item': {
+      const before = liveScheduleItem(raw.eventId, st)
+      if (!before) return { ok: false, why: 'a change to a schedule item that no longer exists' }
+
+      const hasKind = typeof raw.kind === 'string' && raw.kind.length > 0
+      if (hasKind && !(SCHEDULE_ITEM_KINDS as readonly string[]).includes(raw.kind as string))
+        return { ok: false, why: `“${before.title}” had no usable schedule kind` }
+      const kind = (hasKind ? raw.kind : before.kind) as PlannerEventKind
+      const allDay = kind === 'reading_break' || kind === 'holiday'
+      const date = parseDate(raw.date) ?? new Date(before.start)
+      const priorEndDate = before.allDay ? new Date(+new Date(before.end) - 1) : date
+      const endDate = allDay ? parseDate(raw.endDate) ?? (before.allDay ? priorEndDate : date) : date
+      if (+endDate < +date) return { ok: false, why: `“${before.title}” ends before it starts` }
+
+      const previousStartMin = new Date(before.start).getHours() * 60 + new Date(before.start).getMinutes()
+      const startMin = allDay ? 0 : parseTime(raw.time) ?? (before.allDay ? null : previousStartMin)
+      if (startMin == null) return { ok: false, why: `“${before.title}” needs a start time` }
+      const previousDuration = (+new Date(before.end) - +new Date(before.start)) / MIN
+      const durationMin = allDay ? 0 : snap(parseNum(raw.durationMin, 15, 720) ?? previousDuration, 15)
+      if (!allDay && durationMin < 15) return { ok: false, why: `“${before.title}” needs a duration` }
+
+      const startMs = instant(date, startMin, 0)
+      const endMs = allDay ? +atMinutes(endDate, 24 * 60) : startMs + durationMin * MIN
+      if (!plausible(startMs, st.now)) return { ok: false, why: `“${before.title}” was moved outside this school year` }
+
+      const warnings = overlapWarnings(startMs, endMs, st, undefined, before.id)
+      if (startMs < st.now) warnings.push('This time has already passed')
+
+      let courseId = before.courseId ?? null
+      if (typeof raw.courseCode === 'string' && raw.courseCode) {
+        if (raw.courseCode === NO_COURSE) courseId = null
+        else {
+          const course = resolveCourse(raw.courseCode, st)
+          if (course) courseId = course.id
+          else warnings.push(`No course called ${raw.courseCode}. The course link stays unchanged.`)
+        }
+      }
+
+      const title = text(raw.title, 120) ?? before.title
+      const room = typeof raw.room === 'string' ? (text(raw.room, 80) ?? undefined) : before.room
+      const after: PlannerEvent = {
+        ...before,
+        title,
+        kind,
+        start: new Date(startMs).toISOString(),
+        end: new Date(endMs).toISOString(),
+        allDay,
+        courseId,
+        room,
+      }
+
+      const changes: UpdateScheduleItemProposal['changes'] = []
+      if (after.title !== before.title) changes.push({ field: 'Name', from: before.title, to: after.title })
+      if (after.kind !== before.kind) changes.push({ field: 'Kind', from: scheduleKindLabel(before.kind), to: scheduleKindLabel(after.kind) })
+      if (after.start !== before.start || after.end !== before.end || after.allDay !== before.allDay)
+        changes.push({ field: 'When', from: scheduleWhen(before), to: scheduleWhen(after) })
+      if (after.courseId !== before.courseId)
+        changes.push({ field: 'Course', from: courseName(before.courseId ?? null, st), to: courseName(after.courseId ?? null, st) })
+      if (after.room !== before.room) changes.push({ field: 'Location', from: before.room ?? '—', to: after.room ?? '—' })
+      if (!changes.length) return { ok: false, why: `an edit to “${before.title}” that changed nothing` }
+
+      return { ok: true, proposal: { ...base, type, eventId: before.id, before, after, changes, warnings } }
+    }
+
+    case 'remove_schedule_item': {
+      const before = liveScheduleItem(raw.eventId, st)
+      if (!before) return { ok: false, why: 'a schedule item that no longer exists' }
+      return { ok: true, proposal: { ...base, type, eventId: before.id, before } }
     }
 
     case 'schedule_block': {
@@ -1422,6 +1615,8 @@ function validateViews(raw: unknown, st: ValidationState): { views: View[]; reje
 }
 
 const orderOf = (p: Proposal): number => {
+  if (p.type === 'create_schedule_item') return p.startMs
+  if (p.type === 'update_schedule_item') return +new Date(p.after.start)
   if (p.type === 'schedule_block' || p.type === 'move_block') return p.startMs
   if (p.type === 'study_session') return p.startMs
   if (p.type === 'move_deadline') return p.toMs
@@ -1520,6 +1715,7 @@ export function revalidate(proposals: Proposal[], st: ValidationState): { live: 
     let ok = true
     if ('taskId' in p && p.taskId) ok = !!liveAssignment(p.taskId, st)
     if (ok && 'blockId' in p && p.blockId) ok = !!liveBlock(p.blockId, st)
+    if (ok && 'eventId' in p && p.eventId) ok = !!liveScheduleItem(p.eventId, st)
     if (ok && p.type === 'schedule_block' && p.assignmentId) ok = !!liveAssignment(p.assignmentId, st)
     ;(ok ? live : stale).push(p)
   }
@@ -1536,6 +1732,12 @@ export function summarize(p: Proposal): string {
       return `Move ${p.before.title}’s deadline`
     case 'split_task':
       return `Break “${p.before.title}” into ${p.steps.length} steps`
+    case 'create_schedule_item':
+      return `Add ${p.kind === 'exam' ? 'exam' : 'schedule item'} “${p.title}”`
+    case 'update_schedule_item':
+      return `Edit “${p.before.title}”`
+    case 'remove_schedule_item':
+      return `Remove “${p.before.title}”`
     case 'schedule_block':
       return `Study block: ${p.title}`
     case 'move_block': {

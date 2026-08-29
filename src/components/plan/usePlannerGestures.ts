@@ -7,6 +7,7 @@ export type GestureMode = 'move' | 'resize-start' | 'resize-end' | 'create'
 export interface Draft {
   mode: GestureMode
   blockId: string | null
+  eventId: string | null
   dayIdx: number
   startMin: number
   endMin: number
@@ -29,9 +30,12 @@ export interface GestureOpts {
   minDurationMin: number
 
   getBlock: (id: string) => { dayIdx: number; startMin: number; endMin: number } | null
+  getPlannerEvent?: (id: string) => { dayIdx: number; startMin: number; endMin: number } | null
   onMove: (id: string, dayIdx: number, startMin: number, endMin: number, duplicate: boolean) => void
+  onMovePlannerEvent?: (id: string, dayIdx: number, startMin: number, endMin: number) => void
   onCreate: (dayIdx: number, startMin: number, endMin: number) => void
   onTapBlock: (id: string) => void
+  onTapPlannerEvent?: (id: string) => void
 
   snapTargets?: (excludeBlockId: string | null) => number[]
   disabled?: boolean
@@ -51,6 +55,7 @@ interface Internal {
   pointerId: number
   mode: GestureMode
   blockId: string | null
+  eventId: string | null
   downX: number
   downY: number
 
@@ -75,9 +80,12 @@ export function usePlannerGestures(opts: GestureOpts) {
     snapMin,
     minDurationMin,
     getBlock,
+    getPlannerEvent,
     onMove,
+    onMovePlannerEvent,
     onCreate,
     onTapBlock,
+    onTapPlannerEvent,
     snapTargets,
     disabled,
   } = opts
@@ -196,7 +204,7 @@ export function usePlannerGestures(opts: GestureOpts) {
       if (disabled || e.button === 2 || g.current) return
       const target = e.target as HTMLElement
 
-      if (target.closest('[data-class-id], [data-planner-event-id]')) return
+      if (target.closest('[data-class-id]')) return
 
       const blockEl = target.closest<HTMLElement>('[data-block-id]')
       const handle = target.closest<HTMLElement>('[data-handle]')?.dataset.handle
@@ -214,6 +222,7 @@ export function usePlannerGestures(opts: GestureOpts) {
           pointerId: e.pointerId,
           mode,
           blockId: id,
+          eventId: null,
           downX: e.clientX,
           downY: e.clientY,
           grabOffsetMin: pos.minutes - geo.startMin,
@@ -228,6 +237,46 @@ export function usePlannerGestures(opts: GestureOpts) {
         setDraftNow({
           mode,
           blockId: id,
+          eventId: null,
+          dayIdx: geo.dayIdx,
+          startMin: geo.startMin,
+          endMin: geo.endMin,
+          active: false,
+          duplicate: false,
+          origin: geo,
+          magnetAt: null,
+        })
+        return
+      }
+
+      const eventEl = target.closest<HTMLElement>('[data-planner-event-id]')
+      if (eventEl) {
+        const id = eventEl.dataset.plannerEventId!
+        const geo = getPlannerEvent?.(id)
+        if (!geo) return
+        const mode: GestureMode =
+          handle === 'start' ? 'resize-start' : handle === 'end' ? 'resize-end' : 'move'
+        e.preventDefault()
+        g.current = {
+          pointerId: e.pointerId,
+          mode,
+          blockId: null,
+          eventId: id,
+          downX: e.clientX,
+          downY: e.clientY,
+          grabOffsetMin: pos.minutes - geo.startMin,
+          anchorMin: mode === 'resize-start' ? geo.endMin : geo.startMin,
+          origin: geo,
+          moved: false,
+          isTouch,
+          target: e.currentTarget,
+          targets: snapTargets?.(null) ?? [],
+        }
+        capture(e.currentTarget, e.pointerId)
+        setDraftNow({
+          mode,
+          blockId: null,
+          eventId: id,
           dayIdx: geo.dayIdx,
           startMin: geo.startMin,
           endMin: geo.endMin,
@@ -244,6 +293,7 @@ export function usePlannerGestures(opts: GestureOpts) {
           pointerId: e.pointerId,
           mode: 'create',
           blockId: null,
+          eventId: null,
           downX: e.clientX,
           downY: e.clientY,
           grabOffsetMin: 0,
@@ -262,6 +312,7 @@ export function usePlannerGestures(opts: GestureOpts) {
         pointerId: e.pointerId,
         mode: 'create',
         blockId: null,
+        eventId: null,
         downX: e.clientX,
         downY: e.clientY,
         grabOffsetMin: 0,
@@ -274,7 +325,17 @@ export function usePlannerGestures(opts: GestureOpts) {
       }
       capture(e.currentTarget, e.pointerId)
     },
-    [disabled, locate, getBlock, snapMin, dayMinStart, dayMinEnd, minDurationMin, snapTargets],
+    [
+      disabled,
+      locate,
+      getBlock,
+      getPlannerEvent,
+      snapMin,
+      dayMinStart,
+      dayMinEnd,
+      minDurationMin,
+      snapTargets,
+    ],
   )
 
   const onPointerMove = useCallback(
@@ -322,6 +383,7 @@ export function usePlannerGestures(opts: GestureOpts) {
           next = {
             mode: 'move',
             blockId: active.blockId,
+            eventId: active.eventId,
             dayIdx: pos.dayIdx,
             startMin: start,
             endMin: start + duration,
@@ -336,6 +398,7 @@ export function usePlannerGestures(opts: GestureOpts) {
           next = {
             mode: 'resize-end',
             blockId: active.blockId,
+            eventId: active.eventId,
             dayIdx: active.origin.dayIdx,
             startMin: active.origin.startMin,
             endMin: end,
@@ -350,6 +413,7 @@ export function usePlannerGestures(opts: GestureOpts) {
           next = {
             mode: 'resize-start',
             blockId: active.blockId,
+            eventId: active.eventId,
             dayIdx: active.origin.dayIdx,
             startMin: start,
             endMin: active.origin.endMin,
@@ -366,6 +430,7 @@ export function usePlannerGestures(opts: GestureOpts) {
           next = {
             mode: 'create',
             blockId: null,
+            eventId: null,
             dayIdx: active.origin.dayIdx,
             startMin: lo,
             endMin: Math.max(hi, lo + minDurationMin),
@@ -391,6 +456,8 @@ export function usePlannerGestures(opts: GestureOpts) {
 
         if (cur.blockId) {
           onTapBlock(cur.blockId)
+        } else if (cur.eventId) {
+          onTapPlannerEvent?.(cur.eventId)
         } else if (cur.isTouch || cur.mode === 'create') {
           const start = clamp(cur.anchorMin, dayMinStart, dayMinEnd - 60)
           onCreate(cur.origin.dayIdx, start, Math.min(start + 60, dayMinEnd))
@@ -404,11 +471,18 @@ export function usePlannerGestures(opts: GestureOpts) {
             d.origin.startMin === d.startMin &&
             d.origin.endMin === d.endMin
           if (!unchanged || d.duplicate) onMove(d.blockId, d.dayIdx, d.startMin, d.endMin, d.duplicate)
+        } else if (d.eventId) {
+          const unchanged =
+            d.origin &&
+            d.origin.dayIdx === d.dayIdx &&
+            d.origin.startMin === d.startMin &&
+            d.origin.endMin === d.endMin
+          if (!unchanged) onMovePlannerEvent?.(d.eventId, d.dayIdx, d.startMin, d.endMin)
         }
       }
       cancel()
     },
-    [cancel, onCreate, onMove, onTapBlock, dayMinStart, dayMinEnd],
+    [cancel, onCreate, onMove, onMovePlannerEvent, onTapBlock, onTapPlannerEvent, dayMinStart, dayMinEnd],
   )
 
   return {

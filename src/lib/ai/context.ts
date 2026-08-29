@@ -1,4 +1,4 @@
-import type { Assignment, Course, Settings, StudyBlock } from '../types'
+import type { Assignment, Course, PlannerEvent, ScheduleOverride, Settings, StudyBlock } from '../types'
 import type { Ranked, DayLoad, Calibration } from '../priority'
 import { addDays, dayKey, fmtDuration, startOfDay } from '../date'
 import type { Proposal } from './validate'
@@ -9,6 +9,8 @@ export interface ContextInput {
   courses: Course[]
   assignments: Assignment[]
   blocks: StudyBlock[]
+  plannerEvents: PlannerEvent[]
+  scheduleOverrides: ScheduleOverride[]
   ranked: Ranked[]
   loads: DayLoad[]
   calibration: Calibration
@@ -44,7 +46,7 @@ const courseLabel = (c: Course | undefined | null): string => c?.code ?? '—'
 export interface BuiltContext {
   text: string
 
-  stats: { courses: number; tasks: number; blocks: number; chars: number; withheld: number }
+  stats: { courses: number; tasks: number; blocks: number; fixed: number; chars: number; withheld: number }
 }
 
 export function buildContext(input: ContextInput): BuiltContext {
@@ -106,6 +108,50 @@ export function buildContext(input: ContextInput): BuiltContext {
     L.push('## ARCHIVED COURSES')
     L.push('Put away, and in no ranking or plan. File nothing new under these; name one only to restore it.')
     for (const c of put_away) L.push(courseLabel(c))
+    L.push('')
+  }
+
+  const courseById = new Map(courses.map((course) => [course.id, course]))
+  const futureFixed = input.plannerEvents
+    .filter((event) => +new Date(event.end) >= +startOfDay(now))
+    .sort((a, b) => +new Date(a.start) - +new Date(b.start))
+    .slice(0, 60)
+  const futureOverrides = input.scheduleOverrides
+    .filter((override) => +new Date(`${override.date}T00:00:00`) >= +startOfDay(now))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, 40)
+
+  if (futureFixed.length || futureOverrides.length) {
+    L.push('## FIXED SCHEDULE')
+    L.push('These are already on the student’s calendar. They are part of the plan: never place study time over them. Exam times are high-priority academic commitments, not exceptions or study tasks.')
+    if (futureFixed.length) {
+      L.push('when | id | kind | item | course | details')
+      for (const event of futureFixed) {
+        const start = +new Date(event.start)
+        const end = +new Date(event.end)
+        const when = event.allDay
+          ? `${ymd(start)} all day${ymd(start) === ymd(end - 1) ? '' : ` through ${ymd(end - 1)}`}`
+          : `${weekday(start)} ${ymd(start)} ${hhmm(start)}–${hhmm(end)}`
+        const kind = event.kind === 'exam'
+          ? 'EXAM'
+          : event.kind === 'custom_class'
+            ? 'ONE-TIME CLASS'
+            : event.kind === 'blocked_time'
+              ? 'COMMITMENT'
+              : event.kind === 'reading_break'
+                ? 'READING BREAK'
+                : 'HOLIDAY'
+        const course = event.courseId ? courseLabel(courseById.get(event.courseId)) : '—'
+        L.push(`${when} | ${event.id} | ${kind} | ${event.title} | ${course} | ${event.room ? `location: ${event.room}` : '—'}`)
+      }
+    }
+    if (futureOverrides.length) {
+      L.push('Class-calendar changes (these replace the normal weekday timetable):')
+      for (const override of futureOverrides) {
+        const schedule = override.scheduleDay == null ? 'no recurring classes' : `${WEEKDAY[override.scheduleDay]} timetable`
+        L.push(`${override.date} | ${schedule}${override.title ? ` | ${override.title}` : ''}`)
+      }
+    }
     L.push('')
   }
 
@@ -282,6 +328,7 @@ export function buildContext(input: ContextInput): BuiltContext {
       courses: active.length,
       tasks: shortlist.length,
       blocks: upcoming.length,
+      fixed: futureFixed.length + futureOverrides.length,
       chars: text.length,
 
       withheld: shortlist.filter((r) => r.assignment.private).length,
@@ -293,6 +340,7 @@ export function describePayload(): string[] {
   return [
     'Today’s date, your time zone, and your daily study capacity',
     'Course codes, class times, and assignment titles',
+    'Exam times, one-off classes, commitments, breaks, holidays, and class-calendar changes',
     'Due dates, grade weights, effort estimates and how much work is left',
     'Study blocks in the window you are asking about',
     'Your most recent finished tasks, so they can be reopened or asked about',
@@ -321,6 +369,12 @@ export function describePending(pending: Proposal[], courses: Course[], assignme
         return `${n} MOVE DEADLINE of ${p.taskId} ("${p.before.title}") | ${at(p.fromMs)} -> ${at(p.toMs)}`
       case 'split_task':
         return `${n} BREAK DOWN ${p.taskId} ("${p.before.title}") into ${p.steps.length} steps: ${p.steps.map((x) => `"${x.title}" ${x.estimateMin}m${x.dueMs ? ` by ${ymd(x.dueMs)}` : ''}`).join('; ')}`
+      case 'create_schedule_item':
+        return `${n} SCHEDULE | ${p.kind.toUpperCase()} | "${p.title}" | ${p.allDay ? `${ymd(p.startMs)} all day${ymd(p.startMs) === ymd(p.endMs - 1) ? '' : ` through ${ymd(p.endMs - 1)}`}` : `${at(p.startMs)} for ${Math.round((p.endMs - p.startMs) / 60000)}m`}${p.courseCode ? ` | ${p.courseCode}` : ''}${p.room ? ` | ${p.room}` : ''}`
+      case 'update_schedule_item':
+        return `${n} EDIT SCHEDULE | "${p.before.title}" | ${p.changes.map((change) => `${change.field}: ${change.from} -> ${change.to}`).join(', ')}`
+      case 'remove_schedule_item':
+        return `${n} REMOVE SCHEDULE | "${p.before.title}" | ${at(+new Date(p.before.start))}`
       case 'schedule_block':
         return `${n} STUDY BLOCK | ${at(p.startMs)} for ${Math.round((p.endMs - p.startMs) / 60000)}m | ${p.assignmentId ? `for task ${p.assignmentId} ("${titleOf(p.assignmentId) ?? ''}")` : (codeOf(p.courseId) ?? p.title)}`
       case 'move_block':

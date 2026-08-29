@@ -6,6 +6,9 @@ export const ACTION_GROUPS = [
   'update_tasks',
   'delete_tasks',
   'breakdowns',
+  'create_schedule_items',
+  'update_schedule_items',
+  'remove_schedule_items',
   'schedule_blocks',
   'move_blocks',
   'rename_blocks',
@@ -49,6 +52,7 @@ export const TASK_KINDS = [
 export const SEGMENT_KINDS = ['prep', 'focus', 'break', 'practice', 'review', 'wrap'] as const
 
 export const MEETING_KINDS = ['lecture', 'tutorial', 'lab', 'conference'] as const
+export const SCHEDULE_ITEM_KINDS = ['exam', 'custom_class', 'blocked_time', 'reading_break', 'holiday'] as const
 export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 export const TONES = ['gentle', 'balanced', 'blunt'] as const
 export const THEMES = ['system', 'light', 'dark'] as const
@@ -268,6 +272,49 @@ const buildGroups = (courseCodes: string[]): Record<ActionGroup, ReturnType<type
       },
     },
     ['reason', 'taskId', 'steps'],
+  ),
+
+  create_schedule_items: arrayOf(
+    'Fixed things that belong on the calendar: exams, one-time classes, appointments, breaks, and holidays. These are commitments, not work blocks. Use this for an exam time; add a separate task only when the student also needs prep work tracked.',
+    {
+      reason: REASON,
+      title: str('What the scheduled item is called.'),
+      kind: {
+        type: 'string',
+        enum: [...SCHEDULE_ITEM_KINDS],
+        description: 'exam for a sitting exam; custom_class for a one-off academic session; blocked_time for any appointment or commitment; reading_break or holiday for days with no regular classes.',
+      },
+      date: DATE,
+      endDate: str('Last calendar date for an all-day reading break or holiday, YYYY-MM-DD. Omit for one day.'),
+      time: str('Start time, HH:MM. Required for exams, one-time classes, and commitments. Never use for an all-day break or holiday.'),
+      durationMin: int('Length in minutes for a timed item. Required for exams, one-time classes, and commitments.', 15, 720),
+      courseCode: courseField(courseCodes, 'Course this item belongs to. Use NONE for an appointment, break, or a non-course commitment.'),
+      room: str('Room, address, or call link, if the student gave one.'),
+    },
+    ['reason', 'title', 'kind', 'date'],
+  ),
+
+  update_schedule_items: arrayOf(
+    'Change a fixed schedule item already in Nudge: its name, date, time, length, course, room, or kind. Give eventId and only fields that change. An all-day break or holiday uses date and optional endDate; timed items use time and durationMin.',
+    {
+      reason: REASON,
+      eventId: str('The schedule item id, copied character-for-character from the fixed schedule above.'),
+      title: str('Replacement name.'),
+      kind: { type: 'string', enum: [...SCHEDULE_ITEM_KINDS], description: 'Replacement schedule kind. Set only when the kind itself changes.' },
+      date: DATE,
+      endDate: str('Replacement last date for an all-day reading break or holiday, YYYY-MM-DD.'),
+      time: TIME,
+      durationMin: int('Replacement total length in minutes for a timed item.', 15, 720),
+      courseCode: courseField(courseCodes, 'Replacement course. Use NONE to remove the course link.'),
+      room: str('Replacement room, address, or call link. Use an empty string to clear it.'),
+    },
+    ['reason', 'eventId'],
+  ),
+
+  remove_schedule_items: arrayOf(
+    'Remove a fixed schedule item when it was cancelled or entered twice. Do not use for a study block.',
+    { reason: REASON, eventId: str('The schedule item id, copied character-for-character from the fixed schedule above.') },
+    ['reason', 'eventId'],
   ),
 
   schedule_blocks: arrayOf(
@@ -648,10 +695,12 @@ export interface RawItem {
   tone?: unknown
   taskId?: unknown
   blockId?: unknown
+  eventId?: unknown
   courseCode?: unknown
   title?: unknown
   kind?: unknown
   date?: unknown
+  endDate?: unknown
   time?: unknown
   durationMin?: unknown
   estimateMin?: unknown

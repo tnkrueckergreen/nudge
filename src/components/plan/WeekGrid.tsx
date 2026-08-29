@@ -17,7 +17,7 @@ import { stepOf } from '../../lib/steps'
 import { edgeOf, solidOf, washOf } from '../../lib/theme'
 import { HopTag, KindGlyph } from '../schedule/ClassBits'
 import { usePlannerGestures, type Draft } from './usePlannerGestures'
-import { cx } from '../ui'
+import { CourseDot, cx } from '../ui'
 
 const GUTTER = 52
 
@@ -62,6 +62,7 @@ export interface WeekGridProps {
   showClasses: boolean
   selectedId: string | null
   onMoveBlock: (id: string, startMs: number, endMs: number, duplicate: boolean) => void
+  onMovePlannerEvent: (id: string, startMs: number, endMs: number) => void
   onCreate: (startMs: number, endMs: number) => void
   onSelect: (id: string | null) => void
 
@@ -88,6 +89,7 @@ export function WeekGrid(props: WeekGridProps) {
     showClasses,
     selectedId,
     onMoveBlock,
+    onMovePlannerEvent,
     onCreate,
     onSelect,
     onSelectCourse,
@@ -140,6 +142,18 @@ export function WeekGrid(props: WeekGridProps) {
     [blocks, dayIndexOf],
   )
 
+  const getPlannerEvent = useCallback(
+    (id: string) => {
+      const event = plannerEvents.find((x) => x.id === id)
+      if (!event || event.allDay) return null
+      const dayIdx = dayIndexOf(event.start)
+      if (dayIdx < 0) return null
+      const { startMin, endMin } = blockSpan(event)
+      return { dayIdx, startMin, endMin }
+    },
+    [plannerEvents, dayIndexOf],
+  )
+
   const perDay = useMemo(() => {
     return days.map((day) => {
       const k = dayKey(day)
@@ -187,15 +201,21 @@ export function WeekGrid(props: WeekGridProps) {
     snapMin: 15,
     minDurationMin: 15,
     getBlock,
+    getPlannerEvent,
     onMove: (id, dayIdx, startMin, endMin, duplicate) => {
       const day = days[dayIdx]
       onMoveBlock(id, +atMinutes(day, startMin), +atMinutes(day, endMin), duplicate)
+    },
+    onMovePlannerEvent: (id, dayIdx, startMin, endMin) => {
+      const day = days[dayIdx]
+      onMovePlannerEvent(id, +atMinutes(day, startMin), +atMinutes(day, endMin))
     },
     onCreate: (dayIdx, startMin, endMin) => {
       const day = days[dayIdx]
       onCreate(+atMinutes(day, startMin), +atMinutes(day, endMin))
     },
     onTapBlock: onSelect,
+    onTapPlannerEvent: onSelectPlannerEvent,
     snapTargets,
   })
 
@@ -363,10 +383,12 @@ export function WeekGrid(props: WeekGridProps) {
                     }
 
                     if (item.kind === 'event') {
+                      if (draft?.active && draft.eventId === item.event.id) return null
                       return (
                         <PlannerEventChip
                           key={item.event.id}
                           event={item.event}
+                          course={item.event.courseId ? courseById.get(item.event.courseId) : undefined}
                           top={top(startMin)}
                           height={height(startMin, endMin)}
                           left={(col / cols) * 100}
@@ -482,6 +504,33 @@ export function WeekGrid(props: WeekGridProps) {
               </div>
             )}
 
+            {draft?.active && draft.eventId && (() => {
+              const draggedEvent = plannerEvents.find((event) => event.id === draft.eventId)
+              if (!draggedEvent) return null
+              const preview = {
+                ...draggedEvent,
+                start: atMinutes(days[draft.dayIdx], draft.startMin).toISOString(),
+                end: atMinutes(days[draft.dayIdx], draft.endMin).toISOString(),
+              }
+              return (
+                <div
+                  className="absolute z-40 pointer-events-none"
+                  style={{ left: draft.dayIdx * colW, width: colW, top: 0, bottom: 0 }}
+                >
+                  <PlannerEventChip
+                    event={preview}
+                    course={preview.courseId ? courseById.get(preview.courseId) : undefined}
+                    top={top(draft.startMin)}
+                    height={height(draft.startMin, draft.endMin)}
+                    left={0}
+                    width={100}
+                    dragging
+                    onOpen={() => {}}
+                  />
+                </div>
+              )
+            })()}
+
             {draft?.active && draft.mode !== 'create' && (
               <div
                 className="absolute z-40 pointer-events-none px-2 py-1 rounded-lg bg-invert-bg text-invert-ink text-[11px] font-semibold tnum shadow-pop whitespace-nowrap"
@@ -586,17 +635,21 @@ function ClassChip({
 
 function PlannerEventChip({
   event,
+  course,
   top,
   height,
   left,
   width,
+  dragging = false,
   onOpen,
 }: {
   event: PlannerEvent
+  course?: Course
   top: number
   height: number
   left: number
   width: number
+  dragging?: boolean
   onOpen: () => void
 }) {
   const isClass = event.kind === 'custom_class'
@@ -604,25 +657,39 @@ function PlannerEventChip({
   const Icon = isClass ? BookOpen : isExam ? ClipboardCheck : event.kind === 'blocked_time' ? Clock3 : CalendarOff
   const kind = isClass ? 'Class' : isExam ? 'Exam time' : 'Blocked time'
   const compact = height < 38
+  const handleH = Math.max(3, Math.min(11, Math.floor(height / 4)))
 
   return (
     <button
       type="button"
       data-planner-event-id={event.id}
       onClick={onOpen}
-      aria-label={`${kind}: ${event.title}, ${fmtTime(event.start)} to ${fmtTime(event.end)}. Edit planner item`}
+      aria-label={`${kind}: ${event.title}, ${fmtTime(event.start)} to ${fmtTime(event.end)}. Edit schedule item`}
       title={`${kind} · ${event.title}${event.room ? ` · ${event.room}` : ''}`}
       className={cx(
-        'absolute overflow-hidden text-left border border-dashed text-ink transition-colors',
+        'block-grab group absolute overflow-hidden text-left border border-dashed text-ink transition-colors',
         isExam
           ? 'border-[color-mix(in_srgb,var(--c-critical)_55%,transparent)] bg-[color-mix(in_srgb,var(--c-critical)_10%,var(--c-surface-2))] text-[var(--c-critical-ink)] hover:bg-[color-mix(in_srgb,var(--c-critical)_15%,var(--c-surface-2))]'
           : 'border-ink/30 bg-surface-2 hover:bg-tint hover:border-ink/45',
+        dragging && 'z-40 shadow-pop cursor-grabbing',
+        !dragging && 'cursor-grab hover:shadow-card',
       )}
       style={{ ...itemFrame(left, width), top, height }}
     >
+      <div
+        data-handle="start"
+        style={{ height: handleH }}
+        className="absolute inset-x-0 top-0 cursor-ns-resize z-10 flex items-start justify-center"
+      >
+        <span className="mt-[1px] h-[3px] w-6 rounded-full bg-ink/25 opacity-0 group-hover:opacity-100 transition-opacity" />
+      </div>
       <div className="flex h-full flex-col justify-start">
         <div className="flex items-start gap-1 min-w-0">
-          <Icon size={12} className="mt-[1px] shrink-0 text-ink-2" />
+          {isExam && course ? (
+            <CourseDot course={course} size={12} className="mt-[1px]" />
+          ) : (
+            <Icon size={12} className="mt-[1px] shrink-0 text-ink-2" />
+          )}
           <span className={cx('text-[11px] font-semibold leading-[1.25] min-w-0', compact ? 'truncate' : 'line-clamp-2')}>
             {event.title}
           </span>
@@ -633,6 +700,16 @@ function PlannerEventChip({
             {event.room ? ` · ${event.room}` : ''}
           </span>
         )}
+      </div>
+      <div
+        data-handle="end"
+        style={{ height: handleH }}
+        className="absolute inset-x-0 bottom-0 cursor-ns-resize z-10 flex items-end justify-center"
+      >
+        <GripHorizontal
+          size={12}
+          className="mb-[-1px] text-ink/35 opacity-0 group-hover:opacity-100 transition-opacity"
+        />
       </div>
     </button>
   )

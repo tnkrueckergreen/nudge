@@ -4,6 +4,7 @@ import {
   ArrowUpDown,
   BellOff,
   BookPlus,
+  CalendarDays,
   CircleCheck,
   SlidersHorizontal,
   StarOff,
@@ -20,6 +21,9 @@ import {
 import type { Course } from '../../lib/types'
 import type {
   CreateTaskProposal,
+  CreateScheduleItemProposal,
+  UpdateScheduleItemProposal,
+  RemoveScheduleItemProposal,
   MoveBlockProposal,
   MoveDeadlineProposal,
   Proposal,
@@ -198,6 +202,52 @@ function ScheduleBlockBody({ p }: { p: ScheduleBlockProposal }) {
   )
 }
 
+function CreateScheduleItemBody({ p }: { p: CreateScheduleItemProposal }) {
+  const courses = useStore((s) => s.courses)
+  const course = courses.find((c) => c.id === p.courseId) ?? null
+  const kind = p.kind === 'exam'
+    ? 'Exam'
+    : p.kind === 'custom_class'
+      ? 'One-time class'
+      : p.kind === 'blocked_time'
+        ? 'Commitment'
+        : p.kind === 'reading_break'
+          ? 'Reading break'
+          : 'Holiday'
+  return (
+    <>
+      <div className="flex items-baseline gap-2 flex-wrap">
+        <span className="text-[14px] font-semibold text-ink leading-snug">{p.title}</span>
+        <CourseTag course={course} />
+      </div>
+      <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+        <Chip tone={p.kind === 'exam' ? 'critical' : 'quiet'}>{kind}</Chip>
+        <Chip>{p.allDay ? `${fmtDayShort(p.startMs)}${fmtDayShort(p.startMs) === fmtDayShort(p.endMs - 1) ? '' : ` – ${fmtDayShort(p.endMs - 1)}`} · all day` : `${fmtDayShort(p.startMs)} · ${fmtTime(p.startMs)} – ${fmtTime(p.endMs)}`}</Chip>
+        {p.room && <Chip tone="quiet">{p.room}</Chip>}
+      </div>
+    </>
+  )
+}
+
+function UpdateScheduleItemBody({ p }: { p: UpdateScheduleItemProposal }) {
+  return (
+    <>
+      <span className="text-[14px] font-semibold text-ink leading-snug">{p.before.title}</span>
+      <ChangeList changes={p.changes} />
+    </>
+  )
+}
+
+function RemoveScheduleItemBody({ p }: { p: RemoveScheduleItemProposal }) {
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-[14px] font-semibold text-ink leading-snug line-through decoration-ink-3">{p.before.title}</span>
+      <Chip tone={p.before.kind === 'exam' ? 'critical' : 'quiet'}>{p.before.kind === 'exam' ? 'Exam' : 'Schedule item'}</Chip>
+      <span className="text-[12px] text-ink-3 tnum">{when(+new Date(p.before.start))}</span>
+    </div>
+  )
+}
+
 function MoveBlockBody({ p }: { p: MoveBlockProposal }) {
   const { courses, assignments } = useStore.getState()
   const linked = p.before.assignmentId ? assignments.find((a) => a.id === p.before.assignmentId) : null
@@ -333,6 +383,9 @@ const HEADINGS: Record<Proposal['type'], { icon: typeof Check; label: string }> 
   update_course: { icon: CornerDownRight, label: 'Edit course' },
   update_settings: { icon: SlidersHorizontal, label: 'Planning settings' },
   create_task: { icon: CalendarPlus, label: 'New task' },
+  create_schedule_item: { icon: CalendarDays, label: 'Schedule item' },
+  update_schedule_item: { icon: CornerDownRight, label: 'Edit schedule' },
+  remove_schedule_item: { icon: Trash2, label: 'Remove schedule item' },
   update_task: { icon: CornerDownRight, label: 'Edit' },
   move_deadline: { icon: TriangleAlert, label: 'Deadline change' },
   split_task: { icon: ListChecks, label: 'Break into steps' },
@@ -356,6 +409,12 @@ function Body({ p }: { p: Proposal }) {
       return <MoveDeadlineBody p={p} />
     case 'split_task':
       return <SplitTaskBody p={p} />
+    case 'create_schedule_item':
+      return <CreateScheduleItemBody p={p} />
+    case 'update_schedule_item':
+      return <UpdateScheduleItemBody p={p} />
+    case 'remove_schedule_item':
+      return <RemoveScheduleItemBody p={p} />
     case 'schedule_block':
       return <ScheduleBlockBody p={p} />
     case 'move_block':

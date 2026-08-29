@@ -121,6 +121,8 @@ export function useAI(derived: Derived, now: number) {
         courses: store.courses,
         assignments: store.assignments,
         blocks: store.blocks,
+        plannerEvents: store.plannerEvents,
+        scheduleOverrides: store.scheduleOverrides,
         ranked: derived.ranked,
         loads: derived.loads,
         calibration: derived.calibration,

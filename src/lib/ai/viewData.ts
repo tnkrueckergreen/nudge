@@ -1,8 +1,8 @@
-import type { Assignment, Course, DayKey, MeetingKind, Session, StudyBlock } from '../types'
+import type { Assignment, Course, DayKey, MeetingKind, PlannerEvent, ScheduleOverride, Session, StudyBlock } from '../types'
 import { addDays, dayKey, startOfDay } from '../date'
-import { placeOf } from '../meetings'
+import { classesOn, placeOf } from '../meetings'
 
-export type TimelineKind = 'deadline' | 'class' | 'block'
+export type TimelineKind = 'deadline' | 'class' | 'event' | 'block'
 
 export interface TimelineItem {
   id: string
@@ -14,8 +14,10 @@ export interface TimelineItem {
   course?: Course
   assignment?: Assignment
   block?: StudyBlock
+  event?: PlannerEvent
   meetingKind?: MeetingKind
   room?: string
+  allDay?: boolean
   done?: boolean
 }
 
@@ -32,14 +34,16 @@ export interface TimelineInput {
   courses: Course[]
   assignments: Assignment[]
   blocks: StudyBlock[]
+  plannerEvents?: PlannerEvent[]
+  scheduleOverrides?: ScheduleOverride[]
 
   courseId?: string
 }
 
-const KIND_RANK: Record<TimelineKind, number> = { class: 0, block: 1, deadline: 2 }
+const KIND_RANK: Record<TimelineKind, number> = { class: 0, event: 1, block: 2, deadline: 3 }
 
 export function buildTimeline(input: TimelineInput): TimelineItem[] {
-  const { from, to, courses, assignments, blocks, courseId } = input
+  const { from, to, courses, assignments, blocks, courseId, plannerEvents = [], scheduleOverrides = [] } = input
   const byId = new Map(courses.map((c) => [c.id, c]))
   const items: TimelineItem[] = []
 
@@ -58,29 +62,41 @@ export function buildTimeline(input: TimelineInput): TimelineItem[] {
     })
   }
 
-  const active = courses.filter((c) => !c.archived && (!courseId || c.id === courseId))
-  if (active.length) {
+  if (courses.some((course) => !course.archived && (!courseId || course.id === courseId))) {
     for (let d = startOfDay(from); +d < to; d = addDays(d, 1)) {
-      const weekday = d.getDay()
-      for (const c of active) {
-        for (const m of c.meetings) {
-          if (m.day !== weekday) continue
-          const at = +d + m.start * 60_000
-          if (at < from || at >= to) continue
-          items.push({
-            id: `meet:${c.id}:${m.id}:${dayKey(d)}`,
-            kind: 'class',
-            at,
-            endAt: +d + m.end * 60_000,
-            title: c.code,
-            course: c,
-            meetingKind: m.kind,
-
-            room: placeOf(c, m)?.raw,
-          })
-        }
+      for (const cls of classesOn(courses, d, { plannerEvents, scheduleOverrides })) {
+        if (courseId && cls.course.id !== courseId) continue
+        if (cls.start < from || cls.start >= to) continue
+        items.push({
+          id: `meet:${cls.id}`,
+          kind: 'class',
+          at: cls.start,
+          endAt: cls.end,
+          title: cls.course.code,
+          course: cls.course,
+          meetingKind: cls.meeting.kind,
+          room: cls.place?.raw,
+        })
       }
     }
+  }
+
+  for (const event of plannerEvents) {
+    if (courseId && event.courseId !== courseId) continue
+    const startAt = +new Date(event.start)
+    const endAt = +new Date(event.end)
+    if (endAt <= from || startAt >= to) continue
+    items.push({
+      id: `event:${event.id}`,
+      kind: 'event',
+      at: event.allDay && startAt < from ? +startOfDay(from) : startAt,
+      endAt,
+      title: event.title,
+      course: event.courseId ? byId.get(event.courseId) : undefined,
+      event,
+      room: event.room,
+      allDay: event.allDay,
+    })
   }
 
   const assignmentById = new Map(assignments.map((a) => [a.id, a]))

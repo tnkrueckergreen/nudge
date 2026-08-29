@@ -939,11 +939,11 @@ export const useStore = create<NudgeStore>()(
             room: input.room?.trim() || undefined,
             createdAt: new Date().toISOString(),
           }
-          mutate('Added planner item', (s) => ({ plannerEvents: [...s.plannerEvents, event] }))
+          mutate('Added schedule item', (s) => ({ plannerEvents: [...s.plannerEvents, event] }))
           return event
         },
         updatePlannerEvent(id, patch) {
-          mutate('Updated planner item', (s) => ({
+          mutate('Updated schedule item', (s) => ({
             plannerEvents: s.plannerEvents.map((event) =>
               event.id === id
                 ? {
@@ -957,7 +957,7 @@ export const useStore = create<NudgeStore>()(
           }))
         },
         removePlannerEvent(id) {
-          mutate('Deleted planner item', (s) => ({
+          mutate('Deleted schedule item', (s) => ({
             plannerEvents: s.plannerEvents.filter((event) => event.id !== id),
           }))
         },
