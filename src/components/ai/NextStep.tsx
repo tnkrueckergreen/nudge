@@ -1,4 +1,3 @@
-/* oxlint-disable react/only-export-components -- the handoff helper is part of this feature's public API. */
 import { useMemo } from 'react'
 import { ArrowRight, CalendarRange, Check, ListChecks, Play, Timer, Undo2 } from 'lucide-react'
 import type { Created } from '../../lib/ai/apply'

@@ -1,4 +1,3 @@
-/* oxlint-disable react/only-export-components -- focus UI and its timer hook share one feature boundary. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, Coffee, Minimize2, Pause, Play, Square } from 'lucide-react'

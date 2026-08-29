@@ -1,4 +1,3 @@
-/* oxlint-disable react/only-export-components -- shared UI utilities and components intentionally share this module. */
 import {
   createContext,
   useCallback,
@@ -158,7 +157,6 @@ export function CourseDot({
   if (!course) return null
   const Icon = subjectIcon(course.code)
   return (
-    // oxlint-disable-next-line react/static-components -- subjectIcon returns a stable icon component for this course code.
     <Icon
       aria-hidden
       size={size}

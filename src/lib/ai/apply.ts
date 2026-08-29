@@ -148,9 +148,6 @@ export function foldProposal(state: AppState, p: Proposal, nowIso: string): Part
       return { todayList: state.todayList.filter((t) => t.assignmentId !== p.taskId) }
 
     case 'complete_task': {
-      // Reopening has to undo everything completing did — steps, blocks and the
-      // automatic top-ups. Half-undoing it left the task looking finished, so
-      // the composite status put it straight back to done.
       const targetBlockIds = new Set(
         state.blocks.filter((b) => b.assignmentId === p.taskId || b.id === p.taskId).map((b) => b.id),
       )

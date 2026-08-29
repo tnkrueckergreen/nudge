@@ -1,4 +1,3 @@
-/* oxlint-disable react/only-export-components -- the insight hook and view are intentionally colocated. */
 import { useMemo, useState } from 'react'
 import { Sparkles } from 'lucide-react'
 import type { Derived } from '../../lib/derive'

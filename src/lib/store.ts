@@ -59,8 +59,6 @@ export type StorageTrouble = 'full' | 'unavailable'
 let storageTrouble: StorageTrouble | null = null
 const storageListeners = new Set<(trouble: StorageTrouble | null) => void>()
 
-/** Whether the last attempt to save ran into trouble, and a way to hear about
- *  it. Saving is best-effort — it must never take an action down with it. */
 export const readStorageTrouble = (): StorageTrouble | null => storageTrouble
 export function onStorageTrouble(fn: (trouble: StorageTrouble | null) => void): () => void {
   storageListeners.add(fn)
@@ -78,14 +76,6 @@ const isQuotaError = (e: unknown): boolean => {
   return name === 'QuotaExceededError' || name === 'NS_ERROR_DOM_QUOTA_REACHED' || code === 22 || code === 1014
 }
 
-/**
- * localStorage, but a failed write is reported rather than thrown. Zustand
- * calls setItem synchronously inside `set`, so an exception here would escape
- * the store action it came from and abort the click that caused it.
- *
- * Throws when there is no usable storage at all, which is what
- * `createJSONStorage` expects: it catches that and runs the store unpersisted.
- */
 function resolveStorage(): Storage {
   const base = (globalThis as { localStorage?: Storage }).localStorage
   if (!base) throw new Error('no localStorage')

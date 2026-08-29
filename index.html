@@ -54,7 +54,6 @@
         el.style.background = bg
         document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg)
       } catch (e) {}
-
       try {
         if (!document.querySelector('meta[name="viewport"]')) {
           var m = document.createElement('meta')
@@ -63,7 +62,6 @@
           document.head.appendChild(m)
         }
       } catch (e) {}
-
       try {
         if (window.self !== window.top) {
           var floor = function () {

@@ -110,16 +110,13 @@ export interface StudyBlock {
   createdAt: Iso
 }
 
-/** A one-off item that belongs to the planner rather than a course's repeating timetable. */
 export type PlannerEventKind = 'custom_class' | 'exam' | 'blocked_time' | 'reading_break' | 'holiday'
 
 export interface PlannerEvent {
   id: ID
   title: string
   kind: PlannerEventKind
-  /** All-day items use local midnight at the start of the first day. */
   start: Iso
-  /** All-day items end at local midnight after their final day. */
   end: Iso
   allDay: boolean
   courseId?: ID | null
@@ -127,11 +124,9 @@ export interface PlannerEvent {
   createdAt: Iso
 }
 
-/** Makes one calendar date follow another weekday's recurring class timetable. */
 export interface ScheduleOverride {
   id: ID
   date: DayKey
-  /** null means this date has no recurring classes. */
   scheduleDay: number | null
   title?: string
   createdAt: Iso
@@ -214,8 +209,6 @@ export interface TimeLog {
   auto?: boolean
   createdAt: Iso
 
-  /** What this time was logged against when it was recorded. The unit a log
-   *  hangs off can change later; these do not, so study history stays put. */
   courseId?: ID | null
   assignmentId?: ID | null
 }

@@ -39,7 +39,6 @@ export function ExportSheet({
   useEffect(() => {
     if (!open) {
       tried.current = false
-      // oxlint-disable-next-line react/set-state-in-effect -- clear transient dialog state when its external open prop closes.
       setCopied(false)
     }
   }, [open])

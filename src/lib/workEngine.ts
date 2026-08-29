@@ -42,8 +42,6 @@ function isWorkStatus(status: unknown): status is WorkStatus {
 
 function normalizedStatus(status: unknown, fallback: unknown = 'todo'): WorkStatus {
   if (isWorkStatus(status)) return status
-  // The fallback is usually a status off a persisted unit, so it needs the same
-  // check the primary value gets. Trusting it lets corrupt data through.
   return isWorkStatus(fallback) ? fallback : 'todo'
 }
 
@@ -69,9 +67,6 @@ function slotFrom(block: StudyBlock): ScheduleSlot {
 function cloneUnit(u: WorkUnit): WorkUnit {
   return {
     ...u,
-    // Every field here can arrive from an imported backup, so none of it is
-    // assumed to have the right shape. This runs on the load path: throwing
-    // would leave the app with no state and the real data still on disk.
     logs: Array.isArray(u.logs) ? u.logs.filter((l) => !!l && typeof l === 'object').map((l) => ({ ...l })) : [],
     schedule: u.schedule && typeof u.schedule === 'object' ? { ...u.schedule } : null,
     plan: Array.isArray(u.plan) ? u.plan.map((p) => ({ ...p })) : undefined,
@@ -79,8 +74,6 @@ function cloneUnit(u: WorkUnit): WorkUnit {
 }
 
 function cloneUnits(src: Record<ID, WorkUnit> | undefined): Record<ID, WorkUnit> {
-  // Unit IDs can come from imported backups. A null-prototype dictionary keeps
-  // IDs such as "__proto__" from changing the shape of the working graph.
   const out: Record<ID, WorkUnit> = Object.create(null) as Record<ID, WorkUnit>
   if (!src || typeof src !== 'object') return out
   for (const [id, u] of Object.entries(src)) {
@@ -102,13 +95,6 @@ function sameSlot(a: ScheduleSlot | null | undefined, b: ScheduleSlot | null | u
   return SLOT_KEYS.every((k) => a[k] === b[k])
 }
 
-/**
- * Whether rebuilding a unit actually produced anything new, ignoring the stamp
- * that says when it changed. Rebuilding happens on every mutation, so without
- * this every unit looked freshly touched every time and `updatedAt` meant
- * nothing. Reusing the old object when the answer is "no" also keeps its
- * identity stable, which is worth having for anything memoising on it.
- */
 function unchangedUnit(next: WorkUnit, prev: WorkUnit | undefined): boolean {
   if (!prev) return false
   for (const key of Object.keys(next) as (keyof WorkUnit)[]) {
@@ -118,13 +104,9 @@ function unchangedUnit(next: WorkUnit, prev: WorkUnit | undefined): boolean {
   for (const key of Object.keys(prev) as (keyof WorkUnit)[]) {
     if (!(key in next)) return false
   }
-  // Logs are replaced wholesale by `attachSessions` afterwards, so an identity
-  // check is all that is meaningful for them here.
   return next.logs === prev.logs && next.plan === prev.plan && sameSlot(next.schedule, prev.schedule)
 }
 
-/** Writes `built` into `units`, keeping the previous object when nothing but
- *  the timestamp would have changed. */
 function put(units: Record<ID, WorkUnit>, prev: WorkUnit | undefined, built: WorkUnit): void {
   units[built.id] = unchangedUnit(built, prev) ? (prev as WorkUnit) : built
 }
@@ -137,9 +119,6 @@ function breakParentCycles(units: Record<ID, WorkUnit>, ownerOf: Map<ID, ID>): v
     while (current && units[current]) {
       const previous = seen.get(current)
       if (previous !== undefined) {
-        // Re-home the node that closes the loop onto the task that owns it.
-        // Cutting it loose instead would strand a live subtask with a null
-        // parent, and the prune below deletes exactly that.
         const cycleNode = path[previous]
         const owner = ownerOf.get(cycleNode)
         units[cycleNode] = {
@@ -158,8 +137,6 @@ function breakParentCycles(units: Record<ID, WorkUnit>, ownerOf: Map<ID, ID>): v
 function sittingParentId(block: StudyBlock, units: Record<ID, WorkUnit>): ID | null {
   const subtask = block.subtaskId ? units[block.subtaskId] : undefined
   if (subtask && block.subtaskId !== block.id && subtask.kind === 'step') {
-    // A stale block can contain a subtask ID from another assignment. Do not
-    // let that foreign reference splice two otherwise independent trees.
     const root = getRoot(units, subtask)
     if (!block.assignmentId || root.id === block.assignmentId) return subtask.id
   }
@@ -178,15 +155,11 @@ function logFromSession(s: Session): TimeLog {
     sittingId: s.sittingId,
     auto: s.auto,
     createdAt: s.createdAt,
-    // Where the time was actually spent. The unit a log hangs off changes as
-    // the user reorganises their tasks; what they studied that afternoon does
-    // not, so it travels with the log instead of being re-derived from the tree.
     courseId: s.courseId,
     assignmentId: s.assignmentId,
   }
 }
 
-/** Children by parent id, built once so traversals stop rescanning every unit. */
 function childIndex(units: Record<ID, WorkUnit>): Map<ID, WorkUnit[]> {
   const index = new Map<ID, WorkUnit[]>()
   for (const u of Object.values(units)) {
@@ -198,8 +171,6 @@ function childIndex(units: Record<ID, WorkUnit>): Map<ID, WorkUnit[]> {
   return index
 }
 
-/** Every descendant of `id`, breadth-first and cycle-safe. Iterative: a deep
- *  imported tree must not be able to overflow the stack on the load path. */
 function descendantsOf(id: ID, children: Map<ID, WorkUnit[]>): WorkUnit[] {
   const out: WorkUnit[] = []
   const seen = new Set<ID>([id])
@@ -264,10 +235,6 @@ function attachSessions(units: Record<ID, WorkUnit>, sessions: Session[]): void 
 
   const targetOf = (s: Session): ID | null => {
     if (s.blockId && units[s.blockId]) return s.blockId
-    // An automatic top-up only ever stood in for "that booked block happened".
-    // Once the block is gone there is nothing left to stand in for, so it is
-    // not re-homed onto the task — that would leave study time the user never
-    // did, with no block left to untick to get rid of it.
     if (isAutoLog(s)) return null
     const owned = holders.get(s.id)
     if (owned) {
@@ -319,9 +286,6 @@ export function mergeProjectedSessions(
   for (const s of extra) {
     if (seen.has(s.id)) continue
     seen.add(s.id)
-    // Sessions that hang off no unit skip the projection, so stale pointers on
-    // them have to be cleaned up here — every path that removes a block would
-    // otherwise have to remember to do it, and one of them always forgets.
     if (liveUnits && s.blockId && !liveUnits[s.blockId]) {
       if (isAutoLog(s)) continue
       out.push({ ...s, blockId: null })
@@ -343,16 +307,6 @@ export function rootDeliverableId(units: Record<ID, WorkUnit>, id: ID): ID | nul
   return root.kind === 'sitting' ? null : root.id
 }
 
-/**
- * A finished unit always carries a completion time. Anything that becomes done
- * through derivation rather than a transition — a task whose last step was
- * ticked, or one loaded from storage that way — would otherwise be `done` with
- * no date, which drops it out of every "finished" list in the app.
- *
- * The best available answer is when the work under it actually finished, then
- * when its booked time ran out, and only failing both, the wall clock. Picking
- * a stable answer matters: the clock would move the date on every load.
- */
 export function stampCompletions(units: Record<ID, WorkUnit>, nowIso: string): Record<ID, WorkUnit> {
   const children = childIndex(units)
   for (const u of Object.values(units)) {
@@ -380,17 +334,12 @@ export function reconcileUnitClosures(
     const hasAuto = u.logs.some((l) => isAutoLog(l))
 
     if (isDone) {
-      // Top up on the way in, and afterwards keep an existing top-up in step
-      // with its block. A block that has been finished for weeks without one is
-      // left alone rather than being credited retroactively.
       const owedATopUp = !wasDone || hasAuto
       if (!owedATopUp || !shouldTopUp(u, next, children)) continue
       const logs = reconcileAutoTopUp(u, nowIso, next, children)
       if (logs === u.logs) continue
       next[u.id] = { ...u, logs, completedAt: u.completedAt ?? nowIso, updatedAt: nowIso }
     } else if (hasAuto || u.completedAt) {
-      // Nothing unfinished keeps automatic time — it only ever stood in for the
-      // block being ticked off — or a date saying when it was finished.
       next[u.id] = {
         ...u,
         logs: hasAuto ? u.logs.filter((l) => !isAutoLog(l)) : u.logs,
@@ -440,8 +389,6 @@ export function syncAssignmentsFromUnits(
       return { ...st, done, completedAt, parentId }
     })
 
-    // A finished task without a date disappears from the finished lists as well
-    // as the open ones, so this never emits `done` without one.
     const completedAt = status === 'done' ? a.completedAt ?? u.completedAt ?? nowIso : undefined
     if (!subtasksChanged && a.status === status && a.completedAt === completedAt) return a
     changed = true
@@ -470,25 +417,9 @@ export function deriveCompositeStatus(childStatuses: WorkStatus[], ownStatus: Wo
   return 'todo'
 }
 
-/**
- * A unit with anything under it takes its status from that: finished when all
- * of it is finished, in progress when any of it is, and otherwise its own.
- *
- * Steps and study blocks count the same, because the store already treats them
- * the same — ticking every block of a step ticks the step, unticking one
- * unticks it, and marking a task done or reopening it ticks and unticks its
- * blocks. Whatever sits under a unit is the plan for it, and the plan being
- * finished is what "done" means. A unit with nothing under it keeps its own
- * status, so a bare task is still only finished when someone says so.
- *
- * This is also what stops a task closing while it still has time booked: that
- * block is simply a child that is not done yet.
- */
 export function applyCompositeStatus(units: Record<ID, WorkUnit>): Record<ID, WorkUnit> {
   const children = childIndex(units)
 
-  // Explicit stack rather than recursion: a pathological imported tree must not
-  // be able to overflow on the load path.
   const visited = new Set<ID>()
   for (const root of Object.keys(units)) {
     if (visited.has(root)) continue
@@ -530,8 +461,6 @@ export function stateToUnits(state: AppState): Record<ID, WorkUnit> {
   const units: Record<ID, WorkUnit> = cloneUnits(state.units)
   const now = new Date().toISOString()
 
-  // This runs on the load path against whatever was in storage, so nothing
-  // about the shape of the relational arrays is taken on trust.
   const assignments = asArray(state.assignments)
   const blocks = asArray(state.blocks)
   const sessions = asArray(state.sessions)
@@ -660,8 +589,6 @@ export function stateToUnits(state: AppState): Record<ID, WorkUnit> {
       put(units, existing, {
         ...existing,
         schedule: slot,
-        // Track the block exactly. Falling back to the unit's old value meant a
-        // cleared plan or title lived on and could be written back later.
         plan: isSitting ? b.plan : existing.plan,
         title: isSitting ? b.title ?? '' : existing.title,
         courseId: isSitting ? b.courseId : existing.courseId,
@@ -677,8 +604,6 @@ export function stateToUnits(state: AppState): Record<ID, WorkUnit> {
         id: b.id,
         parentId,
         courseId: b.courseId,
-        // No placeholder: a title the user never typed must not survive a trip
-        // through the unit graph and come back as one they did.
         title: b.title ?? '',
         kind: 'sitting',
         due: b.end,
@@ -752,10 +677,6 @@ export function unitsToRelational(units: Record<ID, WorkUnit>): {
       seenLogIds.add(log.id)
       sessions.push({
         id: log.id,
-        // Study history is a record of what happened, so the recorded course
-        // and task win. Only fill them in from the tree when the log predates
-        // them being kept. blockId is a live pointer, not history, so it is
-        // always re-derived — that is what clears it when a block is deleted.
         courseId: log.courseId !== undefined ? log.courseId : u.courseId,
         assignmentId: log.assignmentId !== undefined ? log.assignmentId : assignmentId,
         blockId,
@@ -771,9 +692,6 @@ export function unitsToRelational(units: Record<ID, WorkUnit>): {
   }
 
   const children = childIndex(units)
-  // Depth-first, pre-order, walking through sittings without emitting them —
-  // the order steps come out in is the order they are shown in. Iterative so a
-  // deep tree cannot overflow the stack.
   const stepsUnder = (rootId: ID): WorkUnit[] => {
     const out: WorkUnit[] = []
     const seen = new Set<ID>([rootId])
@@ -836,8 +754,6 @@ export function unitsToRelational(units: Record<ID, WorkUnit>): {
       courseId: u.courseId,
       assignmentId,
       subtaskId,
-      // An untitled block stays untitled, so the planner keeps falling back to
-      // the step or task name instead of showing a title nobody wrote.
       title: u.title || undefined,
       start: u.schedule.start,
       end: u.schedule.end,
@@ -851,20 +767,6 @@ export function unitsToRelational(units: Record<ID, WorkUnit>): {
   return { assignments, blocks, sessions }
 }
 
-/**
- * Brings a ticked-off block's automatic top-up into line with what it booked.
- *
- * The top-up is not time anyone reported — it is a stand-in for "that booked
- * block happened", created and removed by the engine. So it follows its block:
- * resize or move the block and the top-up resizes and moves with it, and real
- * time logged against the block eats into it rather than stacking on top. That
- * keeps a finished block credited with exactly what it booked, or with the real
- * time if that came to more. Time the user actually logged is never touched.
- *
- * Reconciling rather than appending is also what stops a second top-up landing:
- * the store fills blocks in as they are ticked and the engine fills them in
- * again on reconcile, and the two count credit slightly differently.
- */
 function reconcileAutoTopUp(
   unit: WorkUnit,
   nowIso: string,
@@ -894,11 +796,7 @@ function reconcileAutoTopUp(
   }
 
   const root = getRoot(units, unit)
-  // Field order matches `logFromSession` so a freshly built log and one that has
-  // round-tripped through a session are identical, not merely equivalent.
   const next: TimeLog = {
-    // Keep the same log across edits so it stays one session in the history
-    // rather than a new one appearing every time the block is nudged.
     id: existing?.id ?? uid(),
     start: slot.start,
     end: slot.end,
@@ -906,9 +804,6 @@ function reconcileAutoTopUp(
     source: 'block',
     auto: true,
     createdAt: existing?.createdAt ?? nowIso,
-    // Stamped here so the log is complete the moment it exists. Leaving these
-    // to be filled in on the next recompute left the stored graph briefly
-    // disagreeing with what recomputing it would produce.
     courseId: unit.courseId,
     assignmentId: root.kind !== 'sitting' ? root.id : null,
   }

@@ -48,7 +48,7 @@ const toB64Url = (bytes: Uint8Array): string => {
   for (let i = 0; i < bytes.length; i += 0x8000) {
     s += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
   }
-  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  return btoa(s).replace(/\+/g, '-').replace(/\
 }
 
 const fromB64Url = (text: string): Uint8Array => {

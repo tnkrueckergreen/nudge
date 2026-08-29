@@ -100,7 +100,6 @@ export function AiResult({
   )
 
   useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- reset selection when the external AI reply changes.
     setSelected(new Set(reply.proposals.filter((p) => !p.sensitive).map((p) => p.id)))
   }, [reply])
 

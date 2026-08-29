@@ -32,7 +32,6 @@ export function Courses({
 
   useEffect(() => {
     if (focusCourseId) {
-      // oxlint-disable-next-line react/set-state-in-effect -- synchronize the selected course from an external focus request.
       setExpanded(focusCourseId)
     }
   }, [focusCourseId])

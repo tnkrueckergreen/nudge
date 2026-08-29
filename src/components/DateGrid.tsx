@@ -1,4 +1,3 @@
-/* oxlint-disable react/only-export-components -- date helpers are intentionally shared with this picker. */
 import { useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { addDays, isSameDay, startOfDay } from '../lib/date'

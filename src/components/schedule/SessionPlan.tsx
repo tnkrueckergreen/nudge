@@ -1,4 +1,3 @@
-/* oxlint-disable react/only-export-components -- segment helpers are shared by focus and task views. */
 import type { ReactNode } from 'react'
 import type { BlockSegment, StudyBlock } from '../../lib/types'
 import { useStore } from '../../lib/store'
