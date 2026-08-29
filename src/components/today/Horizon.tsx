@@ -213,8 +213,8 @@ export function Horizon({
                 )}
               >
 
-                <span className={cx('w-[18px] grid place-items-center shrink-0', it.exam && 'text-[var(--c-critical-ink)]')}>
-                  {it.exam ? <ClipboardCheck size={15} strokeWidth={2.2} /> : <CourseDot course={it.course} />}
+                <span className={cx('w-[18px] grid place-items-center shrink-0', it.exam && !it.course && 'text-[var(--c-critical-ink)]')}>
+                  {it.exam && !it.course ? <ClipboardCheck size={15} strokeWidth={2.2} /> : <CourseDot course={it.course} />}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1.5 min-w-0">

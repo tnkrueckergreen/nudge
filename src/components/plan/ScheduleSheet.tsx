@@ -11,7 +11,7 @@ import {
 import { useStore } from '../../lib/store'
 import { addDays, dayKey, fmtDay, fromDayKey } from '../../lib/date'
 import type { PlannerEvent, PlannerEventKind, ScheduleOverride } from '../../lib/types'
-import { Button, Field, Input, Select, Sheet, cx, useToast } from '../ui'
+import { Button, CourseDot, Field, Input, Select, Sheet, cx, useToast } from '../ui'
 
 type Screen =
   | { page: 'home' }
@@ -444,15 +444,26 @@ export function ScheduleSheet({
           <section className="border-t border-line pt-4">
             <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.07em] text-ink-3">Your schedule</p>
             <div className="flex flex-col gap-1">
-              {sortedEvents.map((event) => (
-                <ChangeRow
-                  key={event.id}
-                  icon={event.kind === 'exam' ? <ClipboardCheck size={14} /> : event.allDay ? <CalendarOff size={14} /> : <GraduationCap size={14} />}
-                  title={event.title}
-                  meta={`${EVENT_COPY[event.kind].title} · ${eventDateLabel(event)}`}
-                  onClick={() => openEvent(event)}
-                />
-              ))}
+              {sortedEvents.map((event) => {
+                const eventCourse = event.courseId ? courses.find((course) => course.id === event.courseId) : undefined
+                return (
+                  <ChangeRow
+                    key={event.id}
+                    icon={
+                      event.kind === 'exam' ? (
+                        eventCourse ? <CourseDot course={eventCourse} size={14} /> : <ClipboardCheck size={14} />
+                      ) : event.allDay ? (
+                        <CalendarOff size={14} />
+                      ) : (
+                        <GraduationCap size={14} />
+                      )
+                    }
+                    title={event.title}
+                    meta={`${EVENT_COPY[event.kind].title} · ${eventDateLabel(event)}`}
+                    onClick={() => openEvent(event)}
+                  />
+                )
+              })}
               {sortedOverrides.map((override) => (
                 <ChangeRow
                   key={override.id}

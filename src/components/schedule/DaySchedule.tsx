@@ -319,8 +319,12 @@ function EventRow({ entry, now }: { entry: AgendaEntry; now: number }) {
       ) : (
         <TimeCell at={entry.start} muted={past} />
       )}
-      <span className={cx('w-[18px] shrink-0 grid place-items-center h-[17px]', exam ? 'text-[var(--c-critical-ink)]' : 'text-ink-2')}>
-        <Icon size={14} aria-hidden />
+      <span className={cx('w-[18px] shrink-0 grid place-items-center h-[17px]', exam && !entry.course ? 'text-[var(--c-critical-ink)]' : 'text-ink-2')}>
+        {exam && entry.course ? (
+          <CourseDot course={entry.course} size={14} />
+        ) : (
+          <Icon size={14} aria-hidden />
+        )}
       </span>
       <div className="min-w-0 flex-1">
         <p className={cx('flex items-center gap-1.5 min-w-0 text-[13px] font-medium leading-[17px]', past ? 'text-ink-3' : exam ? 'text-[var(--c-critical-ink)]' : 'text-ink')}>
