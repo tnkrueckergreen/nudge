@@ -64,7 +64,7 @@ export function QuickAddPane({
         }}
       />
       <p className="-mt-3 text-[12px] leading-snug text-ink-3">
-        Quick add creates work to do. For an in-person exam time, use Plan → Exam.
+        Quick add creates work to do. For an in-person exam, use Plan → Exam.
       </p>
       {detected && (
         <button

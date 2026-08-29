@@ -123,7 +123,7 @@ export function buildContext(input: ContextInput): BuiltContext {
 
   if (futureFixed.length || futureOverrides.length) {
     L.push('## FIXED SCHEDULE')
-    L.push('These are already on the student’s calendar. They are part of the plan: never place study time over them. Exam times are high-priority academic commitments, not exceptions or study tasks.')
+    L.push('These are already on the student’s calendar. They are part of the plan: never place study time over them. Exams are high-priority academic commitments, not exceptions or study tasks.')
     if (futureFixed.length) {
       L.push('when | id | kind | item | course | details')
       for (const event of futureFixed) {
@@ -340,7 +340,7 @@ export function describePayload(): string[] {
   return [
     'Today’s date, your time zone, and your daily study capacity',
     'Course codes, class times, and assignment titles',
-    'Exam times, one-off classes, commitments, breaks, holidays, and class-calendar changes',
+    'Exams, one-off classes, commitments, breaks, holidays, and class-calendar changes',
     'Due dates, grade weights, effort estimates and how much work is left',
     'Study blocks in the window you are asking about',
     'Your most recent finished tasks, so they can be reopened or asked about',

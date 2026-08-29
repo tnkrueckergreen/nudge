@@ -655,7 +655,7 @@ function PlannerEventChip({
   const isClass = event.kind === 'custom_class'
   const isExam = event.kind === 'exam'
   const Icon = isClass ? BookOpen : isExam ? ClipboardCheck : event.kind === 'blocked_time' ? Clock3 : CalendarOff
-  const kind = isClass ? 'Class' : isExam ? 'Exam time' : 'Blocked time'
+  const kind = isClass ? 'Class' : isExam ? 'Exam' : 'Blocked time'
   const compact = height < 38
   const handleH = Math.max(3, Math.min(11, Math.floor(height / 4)))
 

@@ -275,7 +275,7 @@ const buildGroups = (courseCodes: string[]): Record<ActionGroup, ReturnType<type
   ),
 
   create_schedule_items: arrayOf(
-    'Fixed things that belong on the calendar: exams, one-time classes, appointments, breaks, and holidays. These are commitments, not work blocks. Use this for an exam time; add a separate task only when the student also needs prep work tracked.',
+    'Fixed things that belong on the calendar: exams, one-time classes, appointments, breaks, and holidays. These are commitments, not work blocks. Use this for an exam; add a separate task only when the student also needs prep work tracked.',
     {
       reason: REASON,
       title: str('What the scheduled item is called.'),
