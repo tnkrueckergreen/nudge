@@ -257,6 +257,8 @@ const main = async () => {
     courses,
     assignments,
     blocks,
+    plannerEvents: [],
+    scheduleOverrides: [],
     ranked,
     loads: dayLoads(blocks, [], startOfDay(NOW), 7, settings.dailyCapacityMin),
     calibration,

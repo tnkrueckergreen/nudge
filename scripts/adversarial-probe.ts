@@ -188,7 +188,7 @@ const main = async () => {
 
     const nudges = buildNudges({
       now: NOW, tone: s.settings.tone, ranked, courses: s.courses, assignments: s.assignments,
-      blocks: s.blocks, sessions: s.sessions, streak, calibration, minutesByAssignment: byAssignment,
+      blocks: s.blocks, plannerEvents: s.plannerEvents, sessions: s.sessions, streak, calibration, minutesByAssignment: byAssignment,
       staleByCourse, todayLoad: loads[0], muted: s.settings.mutedNudges,
     })
     return {
