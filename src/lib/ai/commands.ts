@@ -29,9 +29,11 @@ export interface CommandResult {
 export function runCommands(commands: Command[], host: CommandHost): CommandResult {
   const ran: Command[] = []
   const skipped: { command: Command; why: string }[] = []
-  const store = useStore.getState()
 
   for (const c of commands) {
+    // A host command can synchronously change the store. Read the latest state
+    // for every command so later commands in the same batch see that change.
+    const store = useStore.getState()
     const skip = (why: string) => skipped.push({ command: c, why })
 
     switch (c.action) {

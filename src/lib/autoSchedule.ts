@@ -151,6 +151,7 @@ export function autoSchedule(opts: {
 
   for (const r of candidates) {
     const due = +new Date(r.assignment.due)
+    const overdue = due <= now
 
     const alreadyPlanned = scheduled
       .filter((b) => b.assignmentId === r.assignment.id && +new Date(b.start) >= now)
@@ -163,10 +164,13 @@ export function autoSchedule(opts: {
 
     for (const day of dayList) {
       if (need < 25) break
-      if (+startOfDay(day) > +startOfDay(due)) break
+      if (!overdue && +startOfDay(day) > +startOfDay(due)) break
       const k = dayKey(day)
       const capacityLeft = dailyCapacityMin - (usedByDay.get(k) ?? 0)
       if (capacityLeft < 30) continue
+      // Future work must stay before its deadline. Overdue work has no usable
+      // pre-deadline window left, so let it use today's remaining study time.
+      const dayDeadline = Math.max(due, +atMinutes(day, dayEndHour * 60))
 
       let placedToday = 0
       let blocksToday = 0
@@ -186,11 +190,11 @@ export function autoSchedule(opts: {
             chunk,
             need,
             capacityLeft - placedToday,
-            Math.max(0, (due - slot.start) / MIN),
+            Math.max(0, (dayDeadline - slot.start) / MIN),
           )
           const minutes = Math.floor(room / 15) * 15
           if (minutes < 30) continue
-          for (let t = slot.start; t + minutes * MIN <= Math.min(slot.end, due); t += 30 * MIN) {
+          for (let t = slot.start; t + minutes * MIN <= Math.min(slot.end, dayDeadline); t += 30 * MIN) {
             const score = preferenceScore((t - midnight) / MIN)
             if (!best || score > best.score) best = { start: t, minutes, score }
           }

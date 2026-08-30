@@ -178,7 +178,12 @@ export function foldProposal(state: AppState, p: Proposal, nowIso: string): Part
     case 'delete_task':
       return {
         assignments: state.assignments.filter((a) => a.id !== p.taskId),
-        blocks: state.blocks.filter((b) => b.assignmentId !== p.taskId),
+        blocks: state.blocks.map((b) =>
+          b.assignmentId === p.taskId ? { ...b, assignmentId: null, subtaskId: null } : b,
+        ),
+        sessions: state.sessions.map((x) =>
+          x.assignmentId === p.taskId ? { ...x, assignmentId: null } : x,
+        ),
         todayList: state.todayList.filter((t) => t.assignmentId !== p.taskId),
       }
 
@@ -313,12 +318,24 @@ export function foldProposal(state: AppState, p: Proposal, nowIso: string): Part
       }
     }
 
-    case 'delete_course':
+    case 'delete_course': {
+      const taskIds = new Set(state.assignments.filter((a) => a.courseId === p.courseId).map((a) => a.id))
+      const blockIds = new Set(state.blocks.filter((b) => b.courseId === p.courseId).map((b) => b.id))
       return {
         courses: state.courses.filter((c) => c.id !== p.courseId),
         assignments: state.assignments.map((a) => (a.courseId === p.courseId ? { ...a, courseId: null } : a)),
-        blocks: state.blocks.map((b) => (b.courseId === p.courseId ? { ...b, courseId: null } : b)),
+        blocks: state.blocks.map((b) =>
+          b.courseId === p.courseId ? { ...b, courseId: null } : b,
+        ),
+        sessions: state.sessions.map((x) => {
+          const courseLink =
+            x.courseId === p.courseId ||
+            (x.assignmentId != null && taskIds.has(x.assignmentId)) ||
+            (x.blockId != null && blockIds.has(x.blockId))
+          return courseLink ? { ...x, courseId: null } : x
+        }),
       }
+    }
 
     case 'reorder_today': {
       const list = [...state.todayList]
