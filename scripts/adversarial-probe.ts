@@ -144,6 +144,7 @@ const main = async () => {
     ]
     return {
       version: 1, courses, assignments, blocks, sessions,
+      plannerEvents: [], scheduleOverrides: [],
       todayList: [{ assignmentId: ID.essay, day: dayKey(NOW) }],
       settings: { ...DEFAULT_SETTINGS, onboarded: true },
       timer: null,
@@ -166,6 +167,7 @@ const main = async () => {
     const s = useStore.getState()
     return clone({
       version: s.version, courses: s.courses, assignments: s.assignments, blocks: s.blocks,
+      plannerEvents: s.plannerEvents, scheduleOverrides: s.scheduleOverrides,
       sessions: s.sessions, todayList: s.todayList, settings: s.settings, timer: s.timer,
     } as AppState)
   }
@@ -243,6 +245,7 @@ const main = async () => {
     const surface: Surface = o.surface ?? 'ask'
     const context = buildContext({
       now: NOW, settings: s.settings, courses: s.courses, assignments: s.assignments, blocks: s.blocks,
+      plannerEvents: s.plannerEvents, scheduleOverrides: s.scheduleOverrides,
       ranked: d.ranked, loads: d.loads, calibration: d.calibration, streak: d.streak,
       studiedTodayMin: d.studiedTodayMin, staleByCourse: d.staleByCourse,
       todayIds: new Set(s.todayList.map((t) => t.assignmentId)), prefs: DEFAULT_PREFS,
