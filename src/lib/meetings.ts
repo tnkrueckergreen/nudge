@@ -1,6 +1,6 @@
 import { FlaskConical, MessagesSquare, Presentation, Users, type LucideIcon } from 'lucide-react'
 import type { Assignment, Course, Meeting, MeetingKind, PlannerEvent, ScheduleOverride, StudyBlock } from './types'
-import { dayKey, startOfDay } from './date'
+import { DAY, atMinutes, dayKey, startOfDay } from './date'
 
 export const MEETING_KINDS: readonly MeetingKind[] = ['lecture', 'tutorial', 'conference', 'lab']
 
@@ -178,7 +178,11 @@ export interface PlannerScheduleContext {
 
 export const plannerEventOnDay = (event: PlannerEvent, day: Date | number): boolean => {
   const target = +startOfDay(day)
-  if (!event.allDay) return dayKey(event.start) === dayKey(target)
+  if (!event.allDay) {
+    const start = +new Date(event.start)
+    const end = +new Date(event.end)
+    return Number.isFinite(start) && Number.isFinite(end) && start < target + DAY && end > target
+  }
   return target >= +startOfDay(event.start) && target < +startOfDay(event.end)
 }
 
@@ -214,8 +218,8 @@ export function classesOn(courses: Course[], day: Date | number, context: Planne
         id: `${c.id}:${m.id}:${base}`,
         course: c,
         meeting: m,
-        start: base + m.start * 60_000,
-        end: base + m.end * 60_000,
+        start: +atMinutes(base, m.start),
+        end: +atMinutes(base, m.end),
         place: placeOf(c, m),
       })
     }

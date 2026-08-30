@@ -84,11 +84,22 @@ export function findGapOnDay(opts: {
   blocks: StudyBlock[]
   courses: Course[]
   dayEndHour: number
+  dayStartHour?: number
   plannerEvents?: PlannerEvent[]
   scheduleOverrides?: ScheduleOverride[]
   ignoreBlockId?: string
 }): number | null {
-  const { fromMs, durationMin, blocks, courses, dayEndHour, plannerEvents = [], scheduleOverrides = [], ignoreBlockId } = opts
+  const {
+    fromMs,
+    durationMin,
+    blocks,
+    courses,
+    dayStartHour = 0,
+    dayEndHour,
+    plannerEvents = [],
+    scheduleOverrides = [],
+    ignoreBlockId,
+  } = opts
   const day = startOfDay(fromMs)
   const busy = busyOn(
     day,
@@ -99,7 +110,7 @@ export function findGapOnDay(opts: {
   )
   const limit = +atMinutes(day, dayEndHour * 60) - durationMin * MIN
   const step = 15 * MIN
-  let t = Math.ceil(fromMs / step) * step
+  let t = Math.max(+atMinutes(day, dayStartHour * 60), Math.ceil(fromMs / step) * step)
   while (t <= limit) {
     const end = t + durationMin * MIN
     const clash = busy.find((b) => t < b.end && b.start < end)
@@ -170,7 +181,9 @@ export function autoSchedule(opts: {
       if (capacityLeft < 30) continue
       // Future work must stay before its deadline. Overdue work has no usable
       // pre-deadline window left, so let it use today's remaining study time.
-      const dayDeadline = Math.max(due, +atMinutes(day, dayEndHour * 60))
+      const dayDeadline = overdue
+        ? Math.max(due, +atMinutes(day, dayEndHour * 60))
+        : Math.min(due, +atMinutes(day, dayEndHour * 60))
 
       let placedToday = 0
       let blocksToday = 0
@@ -287,8 +300,9 @@ export function scheduleSteps(opts: {
   dailyCapacityMin: number
 }): (StepSlot | null)[] {
   const { steps, blocks, courses, now, dayStartHour, dayEndHour, dailyCapacityMin } = opts
-  const runway = addDays(startOfDay(now), opts.dueMs < now ? OVERDUE_DAYS : 0)
-  const until = Math.max(opts.dueMs, +atMinutes(runway, dayEndHour * 60))
+  const overdue = opts.dueMs < now
+  const runway = addDays(startOfDay(now), overdue ? OVERDUE_DAYS : 0)
+  const until = overdue ? Math.max(opts.dueMs, +atMinutes(runway, dayEndHour * 60)) : opts.dueMs
   const lastDay = startOfDay(until)
   const scheduled = [...blocks]
   const out: (StepSlot | null)[] = []

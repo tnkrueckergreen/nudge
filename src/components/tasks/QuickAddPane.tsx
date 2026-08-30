@@ -22,6 +22,7 @@ export interface QuickAddPaneProps {
   now: number
   cleanTitle: string
   dueLabel: string
+  error?: string
   detected?: { bits: string[] } | null
   onApplyDetected?: () => void
   onChange: (patch: Partial<QuickAddValue>) => void
@@ -35,6 +36,7 @@ export function QuickAddPane({
   now,
   cleanTitle,
   dueLabel,
+  error,
   detected,
   onApplyDetected,
   onChange,
@@ -66,6 +68,7 @@ export function QuickAddPane({
       <p className="-mt-3 text-[12px] leading-snug text-ink-3">
         Quick add creates work to do. For an in-person exam, use Plan → Exam.
       </p>
+      {error && <p className="-mt-3 text-[12px] leading-snug text-critical">{error}</p>}
       {detected && (
         <button
           type="button"

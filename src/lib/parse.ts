@@ -13,6 +13,7 @@ export interface Parsed {
   dueExplicit: boolean
   weight?: number
   estimateMin?: number
+  error?: string
 }
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -201,6 +202,7 @@ interface Cut {
 export function parseQuickAdd(raw: string, courses: Course[], now: Date = new Date()): Parsed {
   const text = raw.trim()
   const cuts: Cut[] = []
+  const errors: string[] = []
   const eat = (m: RegExpMatchArray | null) => {
     if (m?.index != null) cuts.push({ start: m.index, end: m.index + m[0].length })
   }
@@ -271,11 +273,16 @@ export function parseQuickAdd(raw: string, courses: Course[], now: Date = new Da
   let minute = 0
   const tm = text.match(/\b(\d{1,2})(?::(\d{2}))?\s?(am|pm)\b/i)
   if (tm) {
-    let h = parseInt(tm[1], 10) % 12
-    if (/pm/i.test(tm[3])) h += 12
-    hour = h
-    minute = tm[2] ? parseInt(tm[2], 10) : 0
+    const clockHour = parseInt(tm[1], 10)
+    const clockMinute = tm[2] ? parseInt(tm[2], 10) : 0
     eat(tm)
+    if (clockHour < 1 || clockHour > 12 || clockMinute > 59) {
+      errors.push('That time is not valid. Use a time between 1:00 and 12:59.')
+    } else {
+      hour = clockHour % 12
+      if (/pm/i.test(tm[3])) hour += 12
+      minute = clockMinute
+    }
   } else {
     const t24 = text.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/)
     if (t24) {
@@ -347,9 +354,13 @@ export function parseQuickAdd(raw: string, courses: Course[], now: Date = new Da
       if (month >= 0 && dayNum >= 1 && dayNum <= 31) {
         const d = new Date(now.getFullYear(), month, dayNum)
 
-        if (+d < +startOfDay(now) - 86_400_000 * 2) d.setFullYear(d.getFullYear() + 1)
-        day = d
         eat(hit)
+        if (d.getFullYear() !== now.getFullYear() || d.getMonth() !== month || d.getDate() !== dayNum) {
+          errors.push('That date is not valid.')
+        } else {
+          if (+d < +startOfDay(now) - 86_400_000 * 2) d.setFullYear(d.getFullYear() + 1)
+          day = d
+        }
       }
     }
   }
@@ -391,7 +402,7 @@ export function parseQuickAdd(raw: string, courses: Course[], now: Date = new Da
   }
   title = title.charAt(0).toUpperCase() + title.slice(1)
 
-  return { title, courseId, courseCode, kind, kindExplicit, due, dueExplicit, weight, estimateMin }
+  return { title, courseId, courseCode, kind, kindExplicit, due, dueExplicit, weight, estimateMin, error: errors[0] }
 }
 
 const KIND_TITLES: Record<TaskKind, string> = {

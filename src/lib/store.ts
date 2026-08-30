@@ -31,7 +31,7 @@ import {
   toWork,
   type Recovery,
 } from './timer'
-import { dayKey, minutesOfDay } from './date'
+import { atMinutes, dayKey, minutesOfDay, startOfDay } from './date'
 import { proposeBreakdown, defaultEffort } from './priority'
 import { pruneMutes } from './nudges'
 import { findGapOnDay } from './autoSchedule'
@@ -840,16 +840,34 @@ export const useStore = create<NudgeStore>()(
           const startMs = +new Date(src.start)
           const durationMin = Math.round((+new Date(src.end) - startMs) / 60_000)
 
+          const sourceEnd = +new Date(src.end)
           const slot =
             findGapOnDay({
-              fromMs: +new Date(src.end),
+              fromMs: sourceEnd,
               durationMin,
               blocks,
               courses,
               plannerEvents,
               scheduleOverrides,
+              dayStartHour: settings.dayStartHour,
               dayEndHour: settings.dayEndHour,
-            }) ?? startMs + 86_400_000
+            }) ??
+            (() => {
+              const nextDay = new Date(startOfDay(sourceEnd))
+              nextDay.setDate(nextDay.getDate() + 1)
+              return findGapOnDay({
+                fromMs: +atMinutes(nextDay, settings.dayStartHour * 60),
+                durationMin,
+                blocks,
+                courses,
+                plannerEvents,
+                scheduleOverrides,
+                dayStartHour: settings.dayStartHour,
+                dayEndHour: settings.dayEndHour,
+              })
+            })()
+
+          if (slot == null) return null
 
           const copy: StudyBlock = {
             ...src,

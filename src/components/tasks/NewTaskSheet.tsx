@@ -92,7 +92,9 @@ export function NewTaskSheet({ onClose, onCreated }: { onClose: () => void; onCr
       : null
   }, [draft.title, courses, applied])
 
-  const valid = draft.title.trim().length > 0 && !!draft.date
+  const quickParseError =
+    mode === 'quick' && draft.title.trim().length >= 3 ? parseQuickAdd(draft.title, courses).error : undefined
+  const valid = draft.title.trim().length > 0 && !!draft.date && !quickParseError
 
   const cleanTitle = useMemo(() => {
     const raw = draft.title.trim()
@@ -190,6 +192,7 @@ export function NewTaskSheet({ onClose, onCreated }: { onClose: () => void; onCr
           now={now}
           cleanTitle={cleanTitle}
           dueLabel={fmtDay(new Date(`${draft.date}T${draft.time || '23:59'}`))}
+          error={quickParseError}
           detected={detected}
           onApplyDetected={applyDetected}
           onChange={(patch) => {

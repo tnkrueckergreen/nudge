@@ -119,7 +119,16 @@ const asPayload = (data: unknown): BackupPayload => {
   if (!data || typeof data !== 'object') fail('That file didn’t look like a Nudge backup.')
   const d = data as Partial<BackupPayload>
 
-  if (!Array.isArray(d.courses)) fail('That file didn’t look like a Nudge backup.')
+  const requiredCollections: (keyof BackupPayload)[] = ['courses', 'assignments', 'blocks', 'sessions', 'todayList']
+  if (requiredCollections.some((key) => !Array.isArray(d[key]))) {
+    fail('That file didn’t look like a complete Nudge backup.')
+  }
+  for (const key of ['plannerEvents', 'scheduleOverrides'] as const) {
+    if (d[key] !== undefined && !Array.isArray(d[key])) fail('That file didn’t look like a complete Nudge backup.')
+  }
+  if (d.settings !== undefined && (!d.settings || typeof d.settings !== 'object' || Array.isArray(d.settings))) {
+    fail('That file didn’t look like a complete Nudge backup.')
+  }
   return d as BackupPayload
 }
 

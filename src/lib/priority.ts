@@ -205,7 +205,7 @@ export function rankAssignments(assignments: Assignment[], ctx: RankCtx): Ranked
     const hoursUntil = (dueMs - ctx.now) / HOUR
     const daysUntil = daysBetween(ctx.now, dueMs)
     const weight = a.weight ?? defaultWeight(a.kind)
-    const overdue = hoursUntil < 0
+    const overdue = hoursUntil <= 0
 
     const pressure = overdue ? 4 : remainingMin / Math.max(runwayMin, 20)
 
