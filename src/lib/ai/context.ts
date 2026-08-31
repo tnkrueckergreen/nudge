@@ -97,7 +97,10 @@ export function buildContext(input: ContextInput): BuiltContext {
           const d = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][m.day]
 
           const where = m.room ?? c.room
-          return `${d} ${pad(Math.floor(m.start / 60))}:${pad(m.start % 60)}-${pad(Math.floor(m.end / 60))}:${pad(m.end % 60)} ${m.kind}${where ? ` in ${where}` : ''}`
+          const range = m.startsOn || m.endsOn
+            ? ` (${m.startsOn ? `from ${m.startsOn}` : ''}${m.startsOn && m.endsOn ? ' ' : ''}${m.endsOn ? `through ${m.endsOn}` : ''})`
+            : ''
+          return `${d} ${pad(Math.floor(m.start / 60))}:${pad(m.start % 60)}-${pad(Math.floor(m.end / 60))}:${pad(m.end % 60)} ${m.kind}${where ? ` in ${where}` : ''}${range}`
         })
         .join(', ')
       L.push(`${courseLabel(c)}${meets ? ` | fixed classes: ${meets}` : ' | no class times recorded'}`)

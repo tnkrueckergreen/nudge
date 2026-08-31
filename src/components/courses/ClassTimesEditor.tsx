@@ -21,6 +21,8 @@ interface Row {
   end: number
   kind: MeetingKind
   room: string
+  startsOn: string
+  endsOn: string
 
   ids: Record<number, string>
 }
@@ -32,6 +34,9 @@ const fromTimeInput = (v: string) => {
   return (h || 0) * 60 + (m || 0)
 }
 
+const rangesOverlap = (a: Pick<Row, 'startsOn' | 'endsOn'>, b: Pick<Row, 'startsOn' | 'endsOn'>) =>
+  (!a.endsOn || !b.startsOn || a.endsOn >= b.startsOn) && (!b.endsOn || !a.startsOn || b.endsOn >= a.startsOn)
+
 const rowsFrom = (meetings: Meeting[]): Row[] =>
   groupMeetings(meetings).map((g) => ({
     key: g.members[0]?.id ?? uid(),
@@ -40,6 +45,8 @@ const rowsFrom = (meetings: Meeting[]): Row[] =>
     end: g.end,
     kind: g.kind,
     room: g.room ?? '',
+    startsOn: g.startsOn ?? '',
+    endsOn: g.endsOn ?? '',
     ids: Object.fromEntries(g.members.map((m) => [m.day, m.id])),
   }))
 
@@ -52,6 +59,8 @@ const toMeetings = (rows: Row[]): Meeting[] =>
       end: Math.max(r.end, r.start + 15),
       kind: r.kind,
       room: r.room.trim() || undefined,
+      startsOn: r.startsOn || undefined,
+      endsOn: r.endsOn || undefined,
     })),
   )
 
@@ -99,6 +108,8 @@ export function ClassTimesEditor({
         end: last?.end ?? 11 * 60 + 25,
         kind: last ? (last.kind === 'lecture' ? 'tutorial' : 'lecture') : 'lecture',
         room: last?.room ?? '',
+        startsOn: '',
+        endsOn: '',
         ids: {},
       },
     ])
@@ -112,9 +123,15 @@ export function ClassTimesEditor({
     for (let day = 0; day < 7; day++) {
       const onDay = rows
         .filter((r) => r.days.includes(day))
-        .map((r) => ({ start: r.start * 60_000, end: r.end * 60_000, place: parsePlace(r.room || defaultRoom) }))
+        .map((r) => ({
+          start: r.start * 60_000,
+          end: r.end * 60_000,
+          place: parsePlace(r.room || defaultRoom),
+          row: r,
+        }))
         .sort((a, b) => a.start - b.start)
       for (let i = 1; i < onDay.length; i++) {
+        if (!rangesOverlap(onDay[i - 1].row, onDay[i].row)) continue
         const hop = hopBetween(onDay[i - 1], onDay[i])
         if (!hop || (!hop.tight && !hop.clash)) continue
         out.push({
@@ -133,8 +150,12 @@ export function ClassTimesEditor({
     <div>
       <div className="flex items-baseline justify-between mb-2">
         <h3 className="text-[13px] font-semibold text-ink">Class times</h3>
-        <span className="text-[11.5px] text-ink-3">Drawn on your planner and your day</span>
+        <span className="text-[11.5px] text-ink-3">Weekly by default</span>
       </div>
+      <p className="mb-2.5 rounded-xl border border-line bg-surface-2 px-3 py-2 text-[12px] leading-relaxed text-ink-2">
+        Need a change later? Duplicate a row, choose its new class type or room, and set the dates it applies.
+        Leave both dates blank for the regular semester schedule.
+      </p>
 
       {rows.length === 0 ? (
         <button
@@ -241,8 +262,8 @@ function RowCard({
         <div className="ml-auto flex items-center gap-0.5">
           <button
             type="button"
-            aria-label="Duplicate this class time"
-            title="Duplicate"
+            aria-label="Duplicate this class time as a date variant"
+            title="Duplicate as date variant"
             onClick={onDuplicate}
             className="h-7 w-7 grid place-items-center rounded-lg text-ink-3 hover:text-ink hover:bg-tint transition-colors"
           >
@@ -284,6 +305,48 @@ function RowCard({
           className="h-9 flex-1 min-w-0 px-2 text-[13px]"
         />
         <span className="shrink-0 w-[50px] text-right text-[11.5px] tnum text-ink-3">{fmtDuration(mins)}</span>
+      </div>
+
+      <div className="mt-2">
+        <p className="mb-1 text-[11.5px] font-medium text-ink-2">Applies during <span className="font-normal text-ink-3">(optional)</span></p>
+        <div className="grid grid-cols-2 gap-1.5">
+          <label className="min-w-0">
+            <span className="mb-1 block text-[10.5px] text-ink-3">Starts on</span>
+            <Input
+              type="date"
+              aria-label="Date this class variant starts"
+              value={row.startsOn}
+              onChange={(e) => {
+                const startsOn = e.target.value
+                onPatch({ startsOn, ...(row.endsOn && startsOn > row.endsOn ? { endsOn: startsOn } : {}) })
+              }}
+              className="h-9 min-w-0 px-2 text-[12px]"
+            />
+          </label>
+          <label className="min-w-0">
+            <span className="mb-1 block text-[10.5px] text-ink-3">Ends on</span>
+            <Input
+              type="date"
+              aria-label="Date this class variant ends"
+              value={row.endsOn}
+              min={row.startsOn || undefined}
+              onChange={(e) => {
+                const endsOn = e.target.value
+                onPatch({ endsOn, ...(row.startsOn && endsOn < row.startsOn ? { startsOn: endsOn } : {}) })
+              }}
+              className="h-9 min-w-0 px-2 text-[12px]"
+            />
+          </label>
+        </div>
+        {(row.startsOn || row.endsOn) && (
+          <p className="mt-1 text-[10.5px] leading-snug text-ink-3">
+            {row.startsOn && row.endsOn
+              ? 'This row is used between these dates, inclusive.'
+              : row.startsOn
+                ? 'This row starts on this date and continues onward.'
+                : 'This row is used through this date.'}
+          </p>
+        )}
       </div>
 
       <div

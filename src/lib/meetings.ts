@@ -171,6 +171,11 @@ export interface ClassOccurrence {
   place: Place | null
 }
 
+export function meetingOnDay(meeting: Meeting, day: Date | number): boolean {
+  const key = dayKey(day)
+  return (!meeting.startsOn || key >= meeting.startsOn) && (!meeting.endsOn || key <= meeting.endsOn)
+}
+
 export interface PlannerScheduleContext {
   plannerEvents?: PlannerEvent[]
   scheduleOverrides?: ScheduleOverride[]
@@ -213,7 +218,7 @@ export function classesOn(courses: Course[], day: Date | number, context: Planne
   for (const c of courses) {
     if (c.archived) continue
     for (const m of c.meetings) {
-      if (m.day !== weekday) continue
+      if (m.day !== weekday || !meetingOnDay(m, base)) continue
       out.push({
         id: `${c.id}:${m.id}:${base}`,
         course: c,
@@ -326,11 +331,14 @@ export interface MeetingGroup {
   end: number
   kind: MeetingKind
   room?: string
+  startsOn?: string
+  endsOn?: string
 
   members: Meeting[]
 }
 
-const groupKey = (m: Meeting) => `${m.start}|${m.end}|${m.kind}|${(m.room ?? '').trim().toLowerCase()}`
+const groupKey = (m: Meeting) =>
+  `${m.start}|${m.end}|${m.kind}|${(m.room ?? '').trim().toLowerCase()}|${m.startsOn ?? ''}|${m.endsOn ?? ''}`
 
 export function groupMeetings(meetings: Meeting[]): MeetingGroup[] {
   const byKey = new Map<string, MeetingGroup>()
@@ -341,12 +349,26 @@ export function groupMeetings(meetings: Meeting[]): MeetingGroup[] {
       if (!hit.days.includes(m.day)) hit.days.push(m.day)
       hit.members.push(m)
     } else {
-      byKey.set(k, { days: [m.day], start: m.start, end: m.end, kind: m.kind, room: m.room, members: [m] })
+      byKey.set(k, {
+        days: [m.day],
+        start: m.start,
+        end: m.end,
+        kind: m.kind,
+        room: m.room,
+        startsOn: m.startsOn,
+        endsOn: m.endsOn,
+        members: [m],
+      })
     }
   }
   return [...byKey.values()]
     .map((g) => ({ ...g, days: g.days.sort((a, b) => a - b) }))
-    .sort((a, b) => (a.days[0] ?? 0) - (b.days[0] ?? 0) || a.start - b.start)
+    .sort(
+      (a, b) =>
+        (a.days[0] ?? 0) - (b.days[0] ?? 0) ||
+        a.start - b.start ||
+        (a.startsOn ?? '').localeCompare(b.startsOn ?? ''),
+    )
 }
 
 const WEEKDAY_LETTER = ['S', 'M', 'T', 'W', 'T', 'F', 'S']

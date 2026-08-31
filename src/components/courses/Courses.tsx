@@ -4,7 +4,7 @@ import type { Course } from '../../lib/types'
 import type { Derived } from '../../lib/derive'
 import { useStore } from '../../lib/store'
 import { gradeOutlook } from '../../lib/stats'
-import { atMinutes, daysBetween, fmtDuration, fmtTimeRange, startOfDay } from '../../lib/date'
+import { atMinutes, daysBetween, fmtDayShort, fmtDuration, fmtTimeRange, fromDayKey, startOfDay } from '../../lib/date'
 import { distinctPlaces, fmtDays, groupMeetings, hasMultipleMeetingKinds, parsePlace } from '../../lib/meetings'
 import { colorOf } from '../../lib/theme'
 import { KindBadge, PlaceLine } from '../schedule/ClassBits'
@@ -307,6 +307,14 @@ function ScheduleStrip({ course, now }: { course: Course; now: number }) {
     <div className="mt-2.5 flex flex-col gap-1.5">
       {groups.map((g, i) => {
         const place = single ? null : parsePlace(g.room ?? course.room)
+        const applies =
+          g.startsOn && g.endsOn
+            ? `${fmtDayShort(fromDayKey(g.startsOn))} – ${fmtDayShort(fromDayKey(g.endsOn))}`
+            : g.startsOn
+              ? `From ${fmtDayShort(fromDayKey(g.startsOn))}`
+              : g.endsOn
+                ? `Through ${fmtDayShort(fromDayKey(g.endsOn))}`
+                : null
         return (
           <div key={i} className="flex items-start gap-2 min-w-0">
             {hasMultipleKinds && <KindBadge kind={g.kind} className="mt-[1px]" />}
@@ -317,6 +325,7 @@ function ScheduleStrip({ course, now }: { course: Course; now: number }) {
                   {fmtTimeRange(atMinutes(day, g.start), atMinutes(day, g.end))}
                 </span>
               </p>
+              {applies && <p className="text-[10.5px] leading-[15px] text-ink-3">{applies}</p>}
               {place && <PlaceLine place={place} size="xs" className="text-ink-3" />}
             </div>
           </div>

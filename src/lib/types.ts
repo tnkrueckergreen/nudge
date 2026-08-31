@@ -29,6 +29,9 @@ export interface Meeting {
   end: number
   kind: MeetingKind
   room?: string
+  /** Inclusive dates for this recurring meeting variant. Blank means no bound. */
+  startsOn?: DayKey
+  endsOn?: DayKey
 }
 
 export interface Course {
