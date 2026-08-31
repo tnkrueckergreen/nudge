@@ -175,7 +175,7 @@ export function NewTaskSheet({ onClose, onCreated }: { onClose: () => void; onCr
             Cancel
           </Button>
           <div className="flex-1" />
-          <Button size="sm" onClick={() => submit(true)} disabled={!valid} title="Add and keep the form open (⇧↵)">
+          <Button size="sm" onClick={() => submit(true)} disabled={!valid} title="Add and keep the form open">
             Add another
           </Button>
           <Button size="sm" variant="primary" onClick={() => submit(false)} disabled={!valid}>
@@ -207,7 +207,6 @@ export function NewTaskSheet({ onClose, onCreated }: { onClose: () => void; onCr
             }))
           }}
           onSubmit={() => submit(false)}
-          onSubmitAndRepeat={() => submit(true)}
         />
       ) : (
       <div className="flex flex-col gap-4">

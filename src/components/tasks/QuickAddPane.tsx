@@ -27,7 +27,6 @@ export interface QuickAddPaneProps {
   onApplyDetected?: () => void
   onChange: (patch: Partial<QuickAddValue>) => void
   onSubmit: () => void
-  onSubmitAndRepeat: () => void
 }
 
 export function QuickAddPane({
@@ -41,7 +40,6 @@ export function QuickAddPane({
   onApplyDetected,
   onChange,
   onSubmit,
-  onSubmitAndRepeat,
 }: QuickAddPaneProps) {
   const days = useMemo(() => quickAddDays(now), [now])
 
@@ -61,8 +59,7 @@ export function QuickAddPane({
         onKeyDown={(e) => {
           if (e.key !== 'Enter') return
           e.preventDefault()
-          if (e.shiftKey) onSubmitAndRepeat()
-          else onSubmit()
+          onSubmit()
         }}
       />
       <p className="-mt-3 text-[12px] leading-snug text-ink-3">
@@ -211,9 +208,7 @@ export function QuickAddPane({
             </>
           ) : (
             <span className="inline-flex items-center gap-1.5">
-              Type a name, then <Kbd>↵</Kbd>
-              <span className="text-ink-3">·</span>
-              <Kbd>⇧↵</Kbd> to add another
+              Type a name, then <Kbd>↵</Kbd> to add
             </span>
           )}
         </p>
