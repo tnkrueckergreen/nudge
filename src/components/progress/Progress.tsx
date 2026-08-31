@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, LineChart, Table2 } from 'lucide-react'
+import { LineChart, Table2 } from 'lucide-react'
 import type { Derived } from '../../lib/derive'
 import { useStore } from '../../lib/store'
 import { estimateAccuracy, gradeOutlook, heatmap, weekMinutesByCourse } from '../../lib/stats'
 import { addDays, fmtDayShort, fmtDuration, fromDayKey, startOfWeek } from '../../lib/date'
 import { colorOf } from '../../lib/theme'
-import { Card, CourseDot, EmptyState, IconButton, SectionTitle, cx } from '../ui'
+import { Card, CourseDot, EmptyState, PageHeader, PeriodNavigator, SectionTitle, cx } from '../ui'
 
 export function Progress({ derived, now }: { derived: Derived; now: number }) {
   const courses = useStore((s) => s.courses)
@@ -70,27 +70,17 @@ export function Progress({ derived, now }: { derived: Derived; now: number }) {
 
   return (
     <div className="px-3 sm:px-6 pt-4 sm:pt-7 pb-8 max-w-[1180px] mx-auto flex flex-col gap-5">
-      <h1 className="text-[22px] sm:text-[27px] font-semibold tracking-[-0.02em] text-ink">Progress</h1>
+      <PageHeader title="Progress" description="See your study patterns, workload, and grade trajectory." />
 
       <section>
         <SectionTitle
           right={
-            <div className="flex items-center gap-0.5">
-              <IconButton label="Previous week" size="xs" onClick={() => setWeekOffset((w) => w - 1)}>
-                <ChevronLeft size={15} />
-              </IconButton>
-              <span className="text-[12px] text-ink-2 tnum px-1 min-w-[104px] text-center">
-                {weekOffset === 0 ? 'This week' : `${fmtDayShort(weekStart)}–${fmtDayShort(addDays(weekStart, 6))}`}
-              </span>
-              <IconButton
-                label="Next week"
-                size="xs"
-                onClick={() => setWeekOffset((w) => Math.min(0, w + 1))}
-                disabled={weekOffset >= 0}
-              >
-                <ChevronRight size={15} />
-              </IconButton>
-            </div>
+            <PeriodNavigator
+              title={weekOffset === 0 ? 'This week' : `${fmtDayShort(weekStart)}–${fmtDayShort(addDays(weekStart, 6))}`}
+              onPrevious={() => setWeekOffset((w) => w - 1)}
+              onNext={() => setWeekOffset((w) => Math.min(0, w + 1))}
+              nextDisabled={weekOffset >= 0}
+            />
           }
         >
           Study time by course

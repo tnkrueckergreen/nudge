@@ -8,7 +8,7 @@ import { atMinutes, daysBetween, fmtDayShort, fmtDuration, fmtTimeRange, fromDay
 import { distinctPlaces, fmtDays, groupMeetings, hasMultipleMeetingKinds, parsePlace } from '../../lib/meetings'
 import { colorOf } from '../../lib/theme'
 import { KindBadge, PlaceLine } from '../schedule/ClassBits'
-import { Button, Card, Chip, CourseDot, EmptyState, useToast } from '../ui'
+import { Button, Card, Chip, CourseDot, EmptyState, PageHeader, useToast } from '../ui'
 import { TaskRow } from '../tasks/TaskRow'
 
 export function Courses({
@@ -61,13 +61,17 @@ export function Courses({
 
   return (
     <div className="px-3 sm:px-6 pt-4 sm:pt-7 pb-8 max-w-[1180px] mx-auto">
-      <div className="flex items-center justify-between mb-3">
-        <h1 className="text-[22px] sm:text-[27px] font-semibold tracking-[-0.02em] text-ink">Courses</h1>
-        <Button variant="primary" size="sm" onClick={onAddCourse}>
-          <Plus size={15} />
-          Add course
-        </Button>
-      </div>
+      <PageHeader
+        className="mb-4"
+        title="Courses"
+        description="Keep classes, deadlines, grades, and study time together."
+        actions={
+          <Button variant="primary" size="sm" onClick={onAddCourse}>
+            <Plus size={15} />
+            Add course
+          </Button>
+        }
+      />
 
       <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
         {active.map((c) => (

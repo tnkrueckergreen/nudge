@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, CalendarPlus, CalendarRange, ChevronLeft, ChevronRight, ClipboardCheck, GraduationCap, Info, Sparkles } from 'lucide-react'
+import { CalendarDays, CalendarPlus, CalendarRange, GraduationCap, Info, Sparkles } from 'lucide-react'
 import { useStore } from '../../lib/store'
 import type { Derived } from '../../lib/derive'
 import { addDays, fmtDay, fmtDayShort, fmtDuration, fmtTime, startOfDay, startOfWeek } from '../../lib/date'
@@ -8,7 +8,7 @@ import { washOf } from '../../lib/theme'
 import { WeekGrid } from './WeekGrid'
 import { BlockSheet } from './BlockSheet'
 import { ScheduleSheet } from './ScheduleSheet'
-import { Button, Card, CourseDot, EmptyState, IconButton, cx, useToast } from '../ui'
+import { Button, Card, CourseDot, EmptyState, PeriodNavigator, cx, useToast } from '../ui'
 import { useIsMobile } from '../../lib/hooks'
 import type { Surface } from '../../lib/ai/prompt'
 import { useAiConfig } from '../../lib/ai/useAI'
@@ -247,13 +247,9 @@ export function Plan({
               action={
                 <>
                   <Button variant="primary" onClick={onAddCourse}>Add your first course</Button>
-                  <Button variant="primary" onClick={() => setSchedule({ type: 'exam' })}>
-                    <ClipboardCheck size={14} />
-                    Add an exam
-                  </Button>
                   <Button onClick={() => setSchedule({ type: 'home' })}>
                     <CalendarDays size={14} />
-                    Schedule
+                    Open schedule
                   </Button>
                 </>
               }
@@ -275,30 +271,15 @@ export function Plan({
     <div className="flex flex-col h-full min-h-0">
 
       <div className="px-3 sm:px-6 pt-3 sm:pt-5 pb-2.5 flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-0.5">
-          <IconButton label="Previous week" size="sm" onClick={() => setWeekOffset((w) => w - 1)}>
-            <ChevronLeft size={17} />
-          </IconButton>
-          <IconButton label="Next week" size="sm" onClick={() => setWeekOffset((w) => w + 1)}>
-            <ChevronRight size={17} />
-          </IconButton>
-        </div>
-        <div className="min-w-0">
-          <h1 className="text-[16px] sm:text-[18px] font-semibold leading-tight text-ink truncate">
-            {thisWeek ? 'This week' : weekLabel}
-          </h1>
-          <p className="text-[11.5px] text-ink-3 tnum leading-tight">
-            {thisWeek ? weekLabel : ''}
-            {weekMinutes > 0 && `${thisWeek ? ' · ' : ''}${fmtDuration(weekMinutes)} planned`}
-          </p>
-        </div>
+        <PeriodNavigator
+          title={thisWeek ? 'This week' : weekLabel}
+          detail={thisWeek ? `${weekLabel}${weekMinutes > 0 ? ` · ${fmtDuration(weekMinutes)} planned` : ''}` : weekMinutes > 0 ? `${fmtDuration(weekMinutes)} planned` : undefined}
+          onPrevious={() => setWeekOffset((w) => w - 1)}
+          onNext={() => setWeekOffset((w) => w + 1)}
+          onToday={thisWeek ? undefined : () => setWeekOffset(() => 0)}
+        />
 
         <div className="ml-auto flex items-center gap-1.5">
-          {!thisWeek && (
-            <Button size="sm" onClick={() => setWeekOffset(() => 0)}>
-              Today
-            </Button>
-          )}
           <Button
             size="sm"
             variant={showClasses ? 'quiet' : 'ghost'}
@@ -309,13 +290,9 @@ export function Plan({
             <GraduationCap size={15} />
             <span className="hidden lg:inline">Classes</span>
           </Button>
-          <Button size="sm" onClick={() => setSchedule({ type: 'exam' })} title="Add an exam to your schedule">
-            <ClipboardCheck size={14} />
-            <span className="hidden lg:inline">Exam</span>
-          </Button>
           <Button size="sm" onClick={() => setSchedule({ type: 'home' })} title="Manage classes, exams, and commitments">
             <CalendarDays size={14} />
-            <span className="hidden lg:inline">Schedule</span>
+            <span className="hidden lg:inline">Open schedule</span>
           </Button>
           <Button
             size="sm"

@@ -8,6 +8,8 @@ import { AiSettings } from './ai/AiSettings'
 import { PALETTES } from '../lib/theme'
 import { Button, ConfirmDialog, Field, Input, Segmented, Select, Sheet, Switch, cx, useToast } from './ui'
 
+type SettingsSection = 'general' | 'planning' | 'data'
+
 export function Settings({ open, onClose }: { open: boolean; onClose: () => void }) {
   const settings = useStore((s) => s.settings)
   const store = useStore()
@@ -15,6 +17,7 @@ export function Settings({ open, onClose }: { open: boolean; onClose: () => void
   const [confirmReset, setConfirmReset] = useState(false)
   const [backup, setBackup] = useState<string | null>(null)
   const [restoring, setRestoring] = useState(false)
+  const [section, setSection] = useState<SettingsSection>('general')
 
   const set = store.updateSettings
 
@@ -25,8 +28,27 @@ export function Settings({ open, onClose }: { open: boolean; onClose: () => void
 
   return (
     <>
-      <Sheet open={open} onClose={onClose} title="Settings" size="md">
+      <Sheet
+        open={open}
+        onClose={onClose}
+        title="Settings"
+        description="One place for how Nudge feels, plans, and keeps your data."
+        size="md"
+      >
         <div className="flex flex-col gap-5">
+          <Segmented
+            ariaLabel="Settings section"
+            value={section}
+            onChange={setSection}
+            options={[
+              { value: 'general', label: 'General' },
+              { value: 'planning', label: 'Planning' },
+              { value: 'data', label: 'Data' },
+            ]}
+            className="w-full [&>button]:flex-1"
+          />
+          {section === 'general' && (
+            <div className="flex flex-col gap-5">
           <Field label="What should I call you?" hint="Used in greetings (optional).">
             <Input
               value={settings.name ?? ''}
@@ -113,7 +135,11 @@ export function Settings({ open, onClose }: { open: boolean; onClose: () => void
               })}
             </div>
           </Field>
+            </div>
+          )}
 
+          {section === 'planning' && (
+            <div className="flex flex-col gap-5">
           <div className="border-t border-line pt-4">
             <h3 className="text-[13px] font-semibold text-ink mb-2.5">Focus timer</h3>
             <div className="grid grid-cols-2 gap-3">
@@ -168,7 +194,10 @@ export function Settings({ open, onClose }: { open: boolean; onClose: () => void
           </div>
 
           <div className="border-t border-line pt-4">
-            <h3 className="text-[13px] font-semibold text-ink mb-2.5">Planning</h3>
+            <h3 className="text-[13px] font-semibold text-ink mb-1">Study planning</h3>
+            <p className="text-[12px] text-ink-3 leading-relaxed mb-3">
+              These limits help Nudge make plans that fit your actual week.
+            </p>
             <Field
               label="Realistic study time per day"
               hint={`Nudge uses ${fmtDuration(settings.dailyCapacityMin, { long: true })} when it plans your day.`}
@@ -207,7 +236,10 @@ export function Settings({ open, onClose }: { open: boolean; onClose: () => void
           </div>
 
           <AiSettings />
+            </div>
+          )}
 
+          {section === 'data' && (
           <div className="border-t border-line pt-4">
             <h3 className="text-[13px] font-semibold text-ink mb-1">Your data</h3>
             <p className="text-[12.5px] text-ink-3 leading-relaxed mb-3">
@@ -231,6 +263,7 @@ export function Settings({ open, onClose }: { open: boolean; onClose: () => void
               </Button>
             </div>
           </div>
+          )}
         </div>
       </Sheet>
 

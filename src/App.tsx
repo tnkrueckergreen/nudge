@@ -343,6 +343,7 @@ function Shell() {
           </div>
 
           <div className="px-3 pb-3 flex flex-col gap-1.5">
+            <p className="px-1 pb-0.5 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-3">Create</p>
             <Button variant="primary" full onClick={() => setQuickAdd(true)} className="justify-between">
               <span className="flex items-center gap-2">
                 <Plus size={16} />
@@ -363,12 +364,13 @@ function Shell() {
             <Button full onClick={() => setFocusNoteOpen(true)} className="justify-between">
               <span className="flex items-center gap-2">
                 <MessageCircleQuestion size={15} />
-                Capture focus
+                Focus note
               </span>
               <span className="text-[11px] text-ink-3 font-normal">D</span>
             </Button>
           </div>
 
+          <p className="px-3 pb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-3">Workspace</p>
           <ul className="px-2 flex flex-col gap-0.5 min-h-0 overflow-y-auto scroll-slim">
             {NAV.map((n) => {
               const active = route === n.id
@@ -421,7 +423,7 @@ function Shell() {
               <span className="text-[14.5px] font-semibold text-ink">Nudge</span>
             )}
             <div className="ml-auto flex items-center gap-0.5 shrink-0">
-              <IconButton label="Capture focus note" size="sm" onClick={() => setFocusNoteOpen(true)}>
+              <IconButton label="Focus note" size="sm" onClick={() => setFocusNoteOpen(true)}>
                 <MessageCircleQuestion size={17} />
               </IconButton>
               {ai.available && (

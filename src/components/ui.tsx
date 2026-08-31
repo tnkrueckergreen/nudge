@@ -13,7 +13,7 @@ import {
   type SelectHTMLAttributes,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { useDismissable, useFocusTrap, useAutoFocus, useIsMobile } from '../lib/hooks'
 import { colorOf } from '../lib/theme'
 import { subjectIcon } from '../lib/subjectIcon'
@@ -86,10 +86,25 @@ export function Card({
   onOpen,
   ...rest
 }: React.HTMLAttributes<HTMLElement> & { as?: React.ElementType; onOpen?: () => void }) {
+  const { onClick, onKeyDown, ...props } = rest
   return (
     <As
-      {...rest}
-      onClick={onOpen ? cardClick(onOpen) : rest.onClick}
+      {...props}
+      onClick={onOpen ? cardClick(onOpen) : onClick}
+      onKeyDown={
+        onOpen
+          ? (e: React.KeyboardEvent<HTMLElement>) => {
+              onKeyDown?.(e)
+              if (e.defaultPrevented || e.target !== e.currentTarget) return
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onOpen()
+              }
+            }
+          : onKeyDown
+      }
+      role={onOpen ? 'button' : props.role}
+      tabIndex={onOpen ? 0 : props.tabIndex}
       className={cx('ui-card', onOpen && 'cursor-pointer', className)}
     />
   )
@@ -108,6 +123,64 @@ export function SectionTitle({
     <div className={cx('ui-section-title', className)}>
       <h2 className="ui-eyebrow ui-eyebrow-lg">{children}</h2>
       {right}
+    </div>
+  )
+}
+
+export function PageHeader({
+  title,
+  description,
+  actions,
+  className,
+}: {
+  title: ReactNode
+  description?: ReactNode
+  actions?: ReactNode
+  className?: string
+}) {
+  return (
+    <header className={cx('flex items-start justify-between gap-4', className)}>
+      <div className="min-w-0">
+        <h1 className="text-[22px] sm:text-[27px] font-semibold tracking-[-0.02em] text-ink leading-tight truncate">
+          {title}
+        </h1>
+        {description && <p className="mt-0.5 text-[12px] sm:text-[12.5px] text-ink-3">{description}</p>}
+      </div>
+      {actions && <div className="flex items-center gap-1.5 shrink-0">{actions}</div>}
+    </header>
+  )
+}
+
+export function PeriodNavigator({
+  title,
+  detail,
+  onPrevious,
+  onNext,
+  onToday,
+  nextDisabled = false,
+  className,
+}: {
+  title: ReactNode
+  detail?: ReactNode
+  onPrevious: () => void
+  onNext: () => void
+  onToday?: () => void
+  nextDisabled?: boolean
+  className?: string
+}) {
+  return (
+    <div className={cx('flex items-center gap-1', className)}>
+      <IconButton label="Previous week" size="sm" onClick={onPrevious}>
+        <ChevronLeft size={16} />
+      </IconButton>
+      <div className="min-w-0 px-1 text-center">
+        <p className="text-[13px] font-medium text-ink tnum leading-tight truncate">{title}</p>
+        {detail && <p className="mt-0.5 text-[11.5px] text-ink-3 tnum leading-tight truncate">{detail}</p>}
+      </div>
+      <IconButton label="Next week" size="sm" onClick={onNext} disabled={nextDisabled}>
+        <ChevronRight size={16} />
+      </IconButton>
+      {onToday && <Button size="sm" onClick={onToday}>Today</Button>}
     </div>
   )
 }
@@ -422,6 +495,7 @@ export function Sheet({
   const trapRef = useFocusTrap<HTMLDivElement>(open)
   const focusRef = useAutoFocus<HTMLDivElement>(open)
   const isMobile = useIsMobile()
+  const titleId = useId()
   if (!open) return null
 
   const width = size === 'sm' ? 'sm:max-w-[420px]' : size === 'lg' ? 'sm:max-w-[720px]' : 'sm:max-w-[560px]'
@@ -440,7 +514,7 @@ export function Sheet({
         }}
         role="dialog"
         aria-modal="true"
-        aria-label={typeof title === 'string' ? title : undefined}
+        aria-labelledby={titleId}
         className={cx(
           'relative w-full bg-surface shadow-pop border border-line flex flex-col',
           'max-h-[92vh] sm:max-h-[86vh]',
@@ -451,7 +525,7 @@ export function Sheet({
       >
         <div className="flex items-start gap-3 px-5 pt-4 pb-3 border-b border-line shrink-0">
           <div className="min-w-0 flex-1">
-            <h2 className="text-[16px] font-semibold leading-tight text-ink">{title}</h2>
+            <h2 id={titleId} className="text-[16px] font-semibold leading-tight text-ink">{title}</h2>
             {description && <p className="text-[13px] text-ink-2 mt-0.5 leading-snug">{description}</p>}
           </div>
           <IconButton label="Close" onClick={onClose} size="sm" className="-mr-1.5 -mt-0.5">
