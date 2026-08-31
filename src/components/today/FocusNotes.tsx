@@ -49,7 +49,7 @@ function NoteForm({
           value={text}
           onChange={(event) => setText(event.target.value.slice(0, 500))}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey || compact && !event.shiftKey)) {
+            if (event.key === 'Enter' && !event.shiftKey) {
               event.preventDefault()
               save()
             }
@@ -81,7 +81,7 @@ function NoteForm({
           {showContext ? 'Hide context' : 'Add course or task'}
         </button>
         <span className="text-[11px] text-ink-3">
-          {compact ? 'Enter to save · Shift + Enter for a new line' : 'Ctrl + Enter to save'}
+          Enter to save · Shift + Enter for a new line
         </span>
       </div>
 
