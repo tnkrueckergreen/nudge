@@ -38,6 +38,8 @@ export function AiSettings() {
   }
 
   const save = async () => {
+    if (phase === 'checking') return
+
     const shape = looksLikeKey(draft)
     if (!shape.ok) {
       setPhase('bad')
@@ -68,6 +70,10 @@ export function AiSettings() {
           ? 'Google refused that key. Check it was copied whole, and that it hasn’t been deleted.'
           : result.error.kind === 'network'
             ? 'Couldn’t reach Google to check it. Check your connection and try again.'
+              : result.error.kind === 'timeout'
+                ? 'Google took too long to answer. Check your connection and try again.'
+                : result.error.kind === 'cancelled'
+                  ? 'The check was stopped. Try again.'
             : 'That didn’t work. Try again in a moment.',
       )
     }

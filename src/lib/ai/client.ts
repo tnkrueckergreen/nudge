@@ -6,6 +6,8 @@ import {
 } from './config'
 
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/interactions'
+const MODELS_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1'
+const VERIFY_TIMEOUT_MS = 10_000
 
 export type AiErrorKind =
   | 'no-key'
@@ -307,17 +309,23 @@ export async function ask(opts: AskOptions): Promise<AiResult> {
 }
 
 export async function verifyKey(key: string, signal?: AbortSignal): Promise<{ ok: true } | { ok: false; error: AiError }> {
+  const ctrl = new AbortController()
+  let timedOut = false
+  const onOuterAbort = () => ctrl.abort()
+  signal?.addEventListener('abort', onOuterAbort, { once: true })
+  const timer = setTimeout(() => {
+    timedOut = true
+    ctrl.abort()
+  }, VERIFY_TIMEOUT_MS)
+
   try {
-    const res = await fetch(ENDPOINT, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify({
-        model: PRIMARY_MODEL,
-        input: 'Reply with the single word: ready',
-        store: false,
-        generation_config: { max_output_tokens: 6, thinking_level: 'low' },
-      }),
-      signal,
+    // Listing models is a quick, read-only key check. It avoids spending time
+    // generating content and does not fail just because the configured model
+    // is temporarily unavailable or renamed.
+    const res = await fetch(MODELS_ENDPOINT, {
+      method: 'GET',
+      headers: { 'x-goog-api-key': key },
+      signal: ctrl.signal,
     })
     if (!res.ok) {
       let parsed: unknown = null
@@ -327,15 +335,28 @@ export async function verifyKey(key: string, signal?: AbortSignal): Promise<{ ok
 
       }
       const err = classify(res.status, parsed)
-      markVerified(key, err.kind !== 'auth' ? true : false)
+      const keyAccepted = err.kind === 'rate' || err.kind === 'quota'
+      markVerified(key, keyAccepted)
 
-      if (err.kind === 'rate' || err.kind === 'quota') return { ok: true }
+      if (keyAccepted) return { ok: true }
       return { ok: false, error: err }
     }
     markVerified(key, true)
     return { ok: true }
   } catch (e) {
-    if ((e as Error)?.name === 'AbortError') return { ok: false, error: new AiError('cancelled', 'aborted') }
+    if ((e as Error)?.name === 'AbortError') {
+      return {
+        ok: false,
+        error: signal?.aborted
+          ? new AiError('cancelled', 'aborted')
+          : timedOut
+            ? new AiError('timeout', 'verification timed out')
+            : new AiError('network', 'request aborted'),
+      }
+    }
     return { ok: false, error: new AiError('network', 'fetch failed', { retryable: true }) }
+  } finally {
+    clearTimeout(timer)
+    signal?.removeEventListener('abort', onOuterAbort)
   }
 }
