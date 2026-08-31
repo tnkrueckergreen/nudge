@@ -256,6 +256,15 @@ const main = async () => {
     settings,
     courses,
     assignments,
+    focusNotes: [
+      {
+        id: 'focus-recursion',
+        text: 'I keep losing track of the base case when proving recursive algorithms.',
+        courseId: 'c-comp',
+        assignmentId: ID.ps4,
+        createdAt: iso(2026, 8, 11, 18, 30),
+      },
+    ],
     blocks,
     plannerEvents: [],
     scheduleOverrides: [],
