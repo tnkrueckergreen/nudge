@@ -120,6 +120,7 @@ export function useAI(derived: Derived, now: number) {
         settings: store.settings,
         courses: store.courses,
         assignments: store.assignments,
+         focusNotes: store.focusNotes,
         blocks: store.blocks,
         plannerEvents: store.plannerEvents,
         scheduleOverrides: store.scheduleOverrides,

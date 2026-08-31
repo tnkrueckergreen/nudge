@@ -180,13 +180,13 @@ const SURFACE_BRIEF: Record<Surface, string> = {
 
   plan_week: `Lay out study time across the days ahead, and anything else that needs a slot in them.
 
-Work backwards from deadlines, heaviest pressure first. Give each task the sittings it actually needs rather than one heroic block. Spread a large task across days — nobody writes an essay in one evening, and a plan that assumes they will is a plan that fails on the first day. The work on their list that is not coursework still has to happen: give the errands and the chores real slots too, in the offcuts of the day rather than in the good hours. Respect existing blocks and classes, stay under the daily capacity, and leave at least one evening lighter than the rest. Prefer afternoons and early evenings. Use schedule_block, and split_task first if a big task has no breakdown.`,
+Work backwards from deadlines, heaviest pressure first. Give each task the sittings it actually needs rather than one heroic block. Spread a large task across days — nobody writes an essay in one evening, and a plan that assumes they will is a plan that fails on the first day. Open focus notes are explicit signals about weak concepts: when a note matches a task or course, give it a dedicated review activity in the relevant study block instead of treating it as generic motivation. The work on their list that is not coursework still has to happen: give the errands and the chores real slots too, in the offcuts of the day rather than in the good hours. Respect existing blocks and classes, stay under the daily capacity, and leave at least one evening lighter than the rest. Prefer afternoons and early evenings. Use schedule_block, and split_task first if a big task has no breakdown.`,
 
   next: `Answer one question: what should they do in the next hour?
 
 If nothing is open — the work list says so — the answer is that they are clear. Say it in one sentence and propose nothing; there is no task to pick and a finished one is not a candidate.
 
-Otherwise pick ONE task and say why it wins right now — deadline, weight, or the fact that it stops being possible if it slips again. Usually that is coursework. Sometimes it is the small thing that stops mattering if it is not done today, and then that wins instead. Name the concrete first action, small enough to start without deciding anything else. Use focus_today if the task is not already on today's list. Put the task itself on screen with a "task" view so they can see what is left in it. Do not list options; deciding is the work you are doing for them.`,
+Otherwise pick ONE task and say why it wins right now — deadline, weight, or the fact that it stops being possible if it slips again. An open focus note is a strong tie-breaker: if one names this task or course, make the first action review that exact concept. Usually that is coursework. Sometimes it is the small thing that stops mattering if it is not done today, and then that wins instead. Name the concrete first action, small enough to start without deciding anything else. Use focus_today if the task is not already on today's list. Put the task itself on screen with a "task" view so they can see what is left in it. Do not list options; deciding is the work you are doing for them.`,
 
   recover: `They have fallen behind. Rebuild the plan.
 
@@ -198,7 +198,7 @@ Each step is one sitting a real student can finish: a concrete physical action w
 
   session: `Turn the stated block of time into one sitting.
 
-Use study_session with segments that fit the minutes given, exactly. Open with a short prep segment that names what to have on screen. Put the hardest thinking early. Include a real break every 45–60 minutes. Close with a short wrap segment that captures where to pick up next time. Every label names their actual work, not "study".`,
+Use study_session with segments that fit the minutes given, exactly. Open with a short prep segment that names what to have on screen. Put the hardest thinking early. If there are open focus notes for the chosen task or course, turn the most relevant note into a concrete review or practice segment and name the concept in its label. Include a real break every 45–60 minutes. Close with a short wrap segment that captures where to pick up next time. Every label names their actual work, not "study".`,
 
   capture: `They have described their commitments in their own words. Turn it into Nudge objects.
 

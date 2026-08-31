@@ -29,6 +29,7 @@ import { SittingCard } from '../schedule/SessionPlan'
 import { NudgeCard, NudgeNote } from './NudgeCard'
 import { Horizon, WeekAhead } from './Horizon'
 import { TaskList, type TaskGroup } from './TaskList'
+import { FocusNotes } from './FocusNotes'
 
 export interface TodayProps {
   derived: Derived
@@ -40,11 +41,12 @@ export interface TodayProps {
   onOpenCourse: (id: string) => void
   onQuickAdd: () => void
   onAddCourse: () => void
+  onOpenFocusNote: () => void
   onAskAi: (intent?: { surface: Surface; request?: string; horizonDays?: number }) => void
 }
 
 export function Today(props: TodayProps) {
-  const { derived, now, onOpenTask, onStartFocus, onGoPlan, onQuickAdd, onAddCourse, onAskAi } = props
+  const { derived, now, onOpenTask, onStartFocus, onGoPlan, onQuickAdd, onAddCourse, onOpenFocusNote, onAskAi } = props
   const aiConfig = useAiConfig()
   const store = useStore()
   const blocks = useStore((s) => s.blocks)
@@ -206,10 +208,14 @@ export function Today(props: TodayProps) {
 
           <div className="flex items-start gap-2.5 shrink-0">
             <div className="hidden sm:block">
-              <Button variant="primary" onClick={onQuickAdd}>
+             <Button variant="primary" onClick={onQuickAdd}>
                 <Plus size={16} />
                 Add task
               </Button>
+             <Button onClick={onOpenFocusNote}>
+               <MessageCircleQuestion size={15} />
+               Focus note
+             </Button>
             </div>
             <StreakBadge streak={derived.streak} now={now} />
           </div>
@@ -305,6 +311,7 @@ export function Today(props: TodayProps) {
               onOpenCourse={props.onOpenCourse}
               onGoPlan={onGoPlan}
             />
+            <FocusNotes className="lg:hidden" onOpenCapture={onOpenFocusNote} />
 
             <div className="sm:hidden">
               <Button variant="primary" full onClick={onQuickAdd}>
@@ -389,6 +396,7 @@ export function Today(props: TodayProps) {
             />
 
             <WeekAhead className="a-rise" style={rise(3)} derived={derived} now={now} onGoPlan={onGoPlan} />
+            <FocusNotes className="a-rise" style={rise(4)} onOpenCapture={onOpenFocusNote} />
           </aside>
         </div>
       )}

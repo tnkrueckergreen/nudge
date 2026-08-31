@@ -5,6 +5,7 @@ import {
   GraduationCap,
   Home,
   Keyboard,
+  MessageCircleQuestion,
   Plus,
   Settings as SettingsIcon,
   Sparkles,
@@ -29,6 +30,7 @@ import type { Surface } from './lib/ai/prompt'
 import { CommandHostContext, type CommandHost } from './lib/ai/commandHost'
 import { encodeBackup } from './lib/backup'
 import { ExportSheet, ImportSheet } from './components/BackupSheets'
+import { FocusNoteSheet } from './components/today/FocusNotes'
 import { Button, ConfirmDialog, IconButton, Kbd, Sheet, ToastHost, cx, useToast } from './components/ui'
 
 type Route = 'today' | 'plan' | 'courses' | 'progress'
@@ -63,6 +65,7 @@ function Shell() {
   const route = (NAV.some((n) => n.id === routeRaw) ? routeRaw : 'today') as Route
 
   const [quickAdd, setQuickAdd] = useState(false)
+  const [focusNoteOpen, setFocusNoteOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [openTaskId, setOpenTaskId] = useState<string | null>(null)
@@ -168,6 +171,7 @@ function Shell() {
           plannerEvents: st.plannerEvents,
           scheduleOverrides: st.scheduleOverrides,
           sessions: st.sessions,
+           focusNotes: st.focusNotes,
           todayList: st.todayList,
           settings: st.settings,
         }).then(setBackupText)
@@ -237,6 +241,9 @@ function Shell() {
       if (k === 'n') {
         e.preventDefault()
         setQuickAdd(true)
+      } else if (k === 'd') {
+        e.preventDefault()
+        setFocusNoteOpen(true)
       } else if (k === 't') go('today')
       else if (k === 'p') go('plan')
       else if (k === 'c') go('courses')
@@ -283,7 +290,8 @@ function Shell() {
             go('courses')
           }}
           onQuickAdd={() => setQuickAdd(true)}
-          onAddCourse={() => setCourseSheet({ id: null })}
+           onAddCourse={() => setCourseSheet({ id: null })}
+           onOpenFocusNote={() => setFocusNoteOpen(true)}
           onAskAi={openAi}
         />
       )}
@@ -352,6 +360,13 @@ function Shell() {
                 <span className="text-[11px] text-ink-3 font-normal">A</span>
               </Button>
             )}
+            <Button full onClick={() => setFocusNoteOpen(true)} className="justify-between">
+              <span className="flex items-center gap-2">
+                <MessageCircleQuestion size={15} />
+                Capture focus
+              </span>
+              <span className="text-[11px] text-ink-3 font-normal">D</span>
+            </Button>
           </div>
 
           <ul className="px-2 flex flex-col gap-0.5 min-h-0 overflow-y-auto scroll-slim">
@@ -406,6 +421,9 @@ function Shell() {
               <span className="text-[14.5px] font-semibold text-ink">Nudge</span>
             )}
             <div className="ml-auto flex items-center gap-0.5 shrink-0">
+              <IconButton label="Capture focus note" size="sm" onClick={() => setFocusNoteOpen(true)}>
+                <MessageCircleQuestion size={17} />
+              </IconButton>
               {ai.available && (
                 <IconButton label="Plan with Nudge" size="sm" onClick={() => openAi()}>
                   <Sparkles size={17} />
@@ -449,6 +467,7 @@ function Shell() {
       </div>
 
       {quickAdd && <NewTaskSheet onClose={() => setQuickAdd(false)} onCreated={setOpenTaskId} />}
+      <FocusNoteSheet open={focusNoteOpen} onClose={() => setFocusNoteOpen(false)} />
       <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       {openTask && (
         <AssignmentSheet
@@ -534,6 +553,7 @@ function TabButton({
 
 const SHORTCUTS: [string, string][] = [
   ['⌘K / N', 'New task'],
+  ['D', 'Capture a focus note'],
   ['F', 'Start a 10-minute session on your top task'],
   ['A', 'Plan with Nudge'],
   ['T / P / C / G', 'Today · Plan · Courses · Progress'],

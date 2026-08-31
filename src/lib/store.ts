@@ -6,6 +6,7 @@ import type {
   BlockSegment,
   ColorSlot,
   Course,
+  FocusNote,
   ID,
   MeetingKind,
   PlannerEvent,
@@ -144,13 +145,14 @@ export const DEFAULT_SETTINGS: Settings = {
 }
 
 const EMPTY: AppState = {
-  version: 4,
+  version: 5,
   courses: [],
   assignments: [],
   blocks: [],
   plannerEvents: [],
   scheduleOverrides: [],
   sessions: [],
+  focusNotes: [],
   units: {},
   todayList: [],
   settings: DEFAULT_SETTINGS,
@@ -159,7 +161,15 @@ const EMPTY: AppState = {
 
 type Snapshot = Pick<
   AppState,
-  'courses' | 'assignments' | 'blocks' | 'plannerEvents' | 'scheduleOverrides' | 'sessions' | 'todayList' | 'units'
+  | 'courses'
+  | 'assignments'
+  | 'blocks'
+  | 'plannerEvents'
+  | 'scheduleOverrides'
+  | 'sessions'
+  | 'focusNotes'
+  | 'todayList'
+  | 'units'
 >
 
 interface UndoEntry {
@@ -261,6 +271,10 @@ export interface NudgeStore extends AppState {
   removeScheduleOverride(id: ID): void
 
   logSession(input: Partial<Session> & { minutes: number }): void
+  addFocusNote(input: Pick<FocusNote, 'text'> & Partial<Pick<FocusNote, 'courseId' | 'assignmentId'>>): FocusNote
+  updateFocusNote(id: ID, patch: Partial<Pick<FocusNote, 'text' | 'courseId' | 'assignmentId'>>): void
+  markFocusNoteReviewed(id: ID, reviewed: boolean): void
+  removeFocusNote(id: ID): void
 
   startSitting(input: {
     assignmentId: ID | null
@@ -309,6 +323,7 @@ const snapshotOf = (s: AppState): Snapshot => ({
   plannerEvents: s.plannerEvents,
   scheduleOverrides: s.scheduleOverrides,
   sessions: s.sessions,
+  focusNotes: s.focusNotes,
   units: s.units ?? {},
   todayList: s.todayList,
 })
@@ -1039,6 +1054,42 @@ export const useStore = create<NudgeStore>()(
           return r
         },
 
+        addFocusNote(input) {
+          const note: FocusNote = {
+            id: uid(),
+            text: input.text.trim(),
+            courseId: input.courseId ?? null,
+            assignmentId: input.assignmentId ?? null,
+            createdAt: new Date().toISOString(),
+          }
+          if (!note.text) return note
+          mutate('Added focus note', (s) => ({ focusNotes: [note, ...s.focusNotes] }))
+          return note
+        },
+        updateFocusNote(id, patch) {
+          mutate('Updated focus note', (s) => ({
+            focusNotes: s.focusNotes.map((note) =>
+              note.id === id
+                ? { ...note, ...patch, text: patch.text?.trim() ?? note.text }
+                : note,
+            ),
+          }))
+        },
+        markFocusNoteReviewed(id, reviewed) {
+          mutate(reviewed ? 'Reviewed focus note' : 'Reopened focus note', (s) => ({
+            focusNotes: s.focusNotes.map((note) =>
+              note.id === id
+                ? { ...note, reviewedAt: reviewed ? new Date().toISOString() : undefined }
+                : note,
+            ),
+          }))
+        },
+        removeFocusNote(id) {
+          mutate('Removed focus note', (s) => ({
+            focusNotes: s.focusNotes.filter((note) => note.id !== id),
+          }))
+        },
+
         startSitting(input) {
           if (get().timer) get().endSitting()
           const now = Date.now()
@@ -1272,13 +1323,14 @@ export const useStore = create<NudgeStore>()(
           if (!isPaletteId(settings.palette)) settings.palette = DEFAULT_PALETTE
           const migrated = migrateLegacyCourseExams(next.courses ?? [], next.plannerEvents ?? [])
           const nextState: AppState = {
-            version: 4,
+            version: 5,
             courses: migrated.courses,
             assignments: next.assignments ?? [],
             blocks: next.blocks ?? [],
             plannerEvents: migrated.plannerEvents,
             scheduleOverrides: next.scheduleOverrides ?? [],
             sessions: next.sessions ?? [],
+            focusNotes: next.focusNotes ?? [],
             todayList: next.todayList ?? [],
             settings,
             timer: null,
@@ -1297,7 +1349,7 @@ export const useStore = create<NudgeStore>()(
     },
     {
       name: STORAGE_KEY,
-      version: 4,
+      version: 5,
       storage: createJSONStorage(resolveStorage),
 
       migrate: (persisted, version) => {
@@ -1330,7 +1382,8 @@ export const useStore = create<NudgeStore>()(
         const migrated = migrateLegacyCourseExams(st.courses ?? [], st.plannerEvents ?? [])
         st.courses = migrated.courses
         st.plannerEvents = migrated.plannerEvents
-        st.version = 4
+        st.version = 5
+        st.focusNotes ??= []
         return st as any
       },
 
@@ -1340,7 +1393,8 @@ export const useStore = create<NudgeStore>()(
         const migrated = migrateLegacyCourseExams(next.courses, next.plannerEvents)
         next.courses = migrated.courses
         next.plannerEvents = migrated.plannerEvents
-        next.version = 4
+        next.version = 5
+        next.focusNotes ??= []
         next.settings = { ...DEFAULT_SETTINGS, ...next.settings }
         next.plannerEvents ??= []
         next.scheduleOverrides ??= []
@@ -1363,6 +1417,7 @@ export const useStore = create<NudgeStore>()(
         plannerEvents: s.plannerEvents,
         scheduleOverrides: s.scheduleOverrides,
         sessions: s.sessions,
+        focusNotes: s.focusNotes,
         todayList: s.todayList,
         settings: s.settings,
         timer: s.timer,

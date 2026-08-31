@@ -148,6 +148,15 @@ export interface Session {
   createdAt: Iso
 }
 
+export interface FocusNote {
+  id: ID
+  text: string
+  courseId?: ID | null
+  assignmentId?: ID | null
+  createdAt: Iso
+  reviewedAt?: Iso
+}
+
 export interface TimerState {
   id: ID
   assignmentId: ID | null
@@ -246,6 +255,7 @@ export interface AppState {
   plannerEvents: PlannerEvent[]
   scheduleOverrides: ScheduleOverride[]
   sessions: Session[]
+  focusNotes: FocusNote[]
   units?: Record<ID, WorkUnit>
   todayList: TodayRef[]
   settings: Settings

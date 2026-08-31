@@ -20,7 +20,7 @@ export function Settings({ open, onClose }: { open: boolean; onClose: () => void
 
   const exportData = async () => {
     const { version, courses, assignments, blocks, plannerEvents, scheduleOverrides, sessions, todayList, settings: st } = useStore.getState()
-    setBackup(await encodeBackup({ version, courses, assignments, blocks, plannerEvents, scheduleOverrides, sessions, todayList, settings: st }))
+    setBackup(await encodeBackup({ version, courses, assignments, blocks, plannerEvents, scheduleOverrides, sessions, focusNotes: useStore.getState().focusNotes, todayList, settings: st }))
   }
 
   return (
